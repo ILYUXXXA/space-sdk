@@ -64,6 +64,7 @@ class MainActivity : Activity() {
             addView(label("СЦЕНАРИЙ ДЛЯ ДЕМО", 12, 0xFF16875C.toInt()))
             addView(label("Покажи, как ContextShield связывает сообщение с попыткой перевода.", 14, 0xFF42564B.toInt(), 5))
             addView(button("Загрузить сценарий мошенничества") { loadInvestorScenario() })
+            addView(button("Открыть проверку перевода") { confirmDemoTransfer() })
             addView(button("Сбросить сценарий") {
                 RiskHistory.clearSession(getSharedPreferences(MessageNotificationListener.PREFS, MODE_PRIVATE))
                 refresh()
