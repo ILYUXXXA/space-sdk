@@ -60,6 +60,17 @@ class MainActivity : Activity() {
         bankCard.addView(transfer)
         page.addView(bankCard)
 
+        page.addView(card(0xFFE8F2EC.toInt()).apply {
+            addView(label("СЦЕНАРИЙ ДЛЯ ДЕМО", 12, 0xFF16875C.toInt()))
+            addView(label("Покажи, как ContextShield связывает сообщение с попыткой перевода.", 14, 0xFF42564B.toInt(), 5))
+            addView(button("Загрузить сценарий мошенничества") { loadInvestorScenario() })
+            addView(button("Открыть проверку перевода") { confirmDemoTransfer() })
+            addView(button("Сбросить сценарий") {
+                RiskHistory.clearSession(getSharedPreferences(MessageNotificationListener.PREFS, MODE_PRIVATE))
+                refresh()
+            })
+        })
+
         gate = label("", 15, 0xFF14251E.toInt(), 10)
         page.addView(card(0xFFFFFFFF.toInt()).apply { addView(label("РЕШЕНИЕ ПЕРЕД ПЕРЕВОДОМ", 12, 0xFF16875C.toInt())); addView(gate) })
         page.addView(card(0xFFFFFFFF.toInt()).apply {
@@ -159,10 +170,111 @@ class MainActivity : Activity() {
             }.show()
     }
 
+    private fun loadInvestorScenario() {
+        val prefs = getSharedPreferences(MessageNotificationListener.PREFS, MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val samples = listOf(
+            "Здравствуйте, я сотрудник службы безопасности банка. По вашему счёту обнаружена подозрительная операция.",
+            "Нужно срочно перевести деньги на безопасный счёт прямо сейчас, времени на проверку нет.",
+            "Никому не говорите об этом звонке и не связывайтесь с банком — просто выполните перевод."
+        )
+        samples.forEachIndexed { index, message ->
+            val signal = LocalRisk.assess(message)
+            RiskHistory.append(prefs, RiskEvent(
+                at = now - (2 - index) * 45_000L,
+                score = signal.score,
+                factors = signal.factors,
+                source = "Демо-сценарий",
+                redactedContent = message
+            ))
+        }
+        prefs.edit()
+            .putInt("received_count", prefs.getInt("received_count", 0) + samples.size)
+            .putInt("scanned_count", prefs.getInt("scanned_count", 0) + samples.size)
+            .putInt("high_risk_count", prefs.getInt("high_risk_count", 0) + 1)
+            .putString("last_notification_state", "Демо: обнаружена цепочка социальной инженерии")
+            .apply()
+        refresh()
+        AlertDialog.Builder(this)
+            .setTitle("Контекст собран")
+            .setMessage("Добавлены 3 связанных события: имитация банка, срочность и требование скрыть разговор. Теперь открой демо-перевод — система оценит не только сообщение, но и нового получателя.")
+            .setPositiveButton("К переводу") { _, _ -> confirmDemoTransfer() }
+            .setNegativeButton("Позже", null)
+            .show()
+    }
+
     private fun confirmDemoTransfer() {
-        AlertDialog.Builder(this).setTitle("Демо-перевод доступен")
-            .setMessage("Проверка пропустила нажатие. Это демонстрация интерфейса: реальный перевод не выполняется.")
-            .setPositiveButton("Закрыть", null).show()
+        val recipient = EditText(this).apply {
+            hint = "Например, Алексей Иванов"
+            setSingleLine(true)
+        }
+        val amount = EditText(this).apply {
+            hint = "Сумма, ₽"
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setSingleLine(true)
+        }
+        val isNewRecipient = android.widget.CheckBox(this).apply {
+            text = "Получатель новый для меня"
+            isChecked = true
+        }
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(8), dp(22), dp(4))
+            addView(label("Получатель", 13, 0xFF64736B.toInt()))
+            addView(recipient)
+            addView(label("Сумма", 13, 0xFF64736B.toInt(), 8))
+            addView(amount)
+            addView(isNewRecipient)
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Новый демо-перевод")
+            .setMessage("Перед подтверждением ContextShield проверит текущий контекст.")
+            .setView(form)
+            .setNegativeButton("Отмена", null)
+            .setPositiveButton("Проверить риск", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val name = recipient.text.toString().trim()
+                val value = amount.text.toString().replace(',', '.').toDoubleOrNull()
+                if (name.isBlank() || value == null || value <= 0.0) {
+                    AlertDialog.Builder(this).setMessage("Укажи получателя и корректную сумму.")
+                        .setPositiveButton("Понятно", null).show()
+                    return@setOnClickListener
+                }
+                val contextRisk = RiskHistory.assess(
+                    RiskHistory.read(getSharedPreferences(MessageNotificationListener.PREFS, MODE_PRIVATE))
+                )
+                val result = DemoTransferRisk.evaluate(
+                    contextRisk = contextRisk,
+                    recipient = name,
+                    amount = value,
+                    isNewRecipient = isNewRecipient.isChecked
+                )
+                dialog.dismiss()
+                val details = buildString {
+                    append("Риск: ${result.score}/100 · ${result.level}\n\n")
+                    append(result.reasons.joinToString("\n") { "• $it" })
+                    append("\n\n")
+                    append(if (result.blocked) "Демо-перевод приостановлен. Не отправляй деньги, пока не проверишь запрос по независимому каналу."
+                        else "Критических сигналов не найдено. Это демонстрация, а не гарантия безопасности.")
+                }
+                AlertDialog.Builder(this)
+                    .setTitle(if (result.blocked) "⛔ Перевод приостановлен" else "✓ Проверка завершена")
+                    .setMessage(details)
+                    .setPositiveButton(if (result.blocked) "Понятно" else "Завершить демо") { _, _ ->
+                        if (!result.blocked) {
+                            AlertDialog.Builder(this)
+                                .setTitle("Демо завершено")
+                                .setMessage("Условный перевод на $name на сумму ${"%.2f".format(Locale.US, value)} ₽ отмечен как тестовый. Деньги не перемещались.")
+                                .setPositiveButton("Закрыть", null).show()
+                        }
+                    }
+                    .setNegativeButton(if (result.blocked) "Проверить позже" else "Отмена", null)
+                    .show()
+            }
+        }
+        dialog.show()
     }
 
     private fun card(color: Int) = LinearLayout(this).apply {
