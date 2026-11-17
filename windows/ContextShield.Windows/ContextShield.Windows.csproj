@@ -1,0 +1,15 @@
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration><Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProjectGuid>{9EC08E1A-5F6D-45E7-9CB1-6DE9D4CA20B0}</ProjectGuid><OutputType>AppContainerExe</OutputType><RootNamespace>ContextShield.Windows</RootNamespace><AssemblyName>ContextShield.Windows</AssemblyName>
+    <DefaultLanguage>ru-RU</DefaultLanguage><TargetPlatformIdentifier>UAP</TargetPlatformIdentifier><TargetPlatformVersion>10.0.19041.0</TargetPlatformVersion><TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion><MinimumVisualStudioVersion>15</MinimumVisualStudioVersion><LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'"><DebugSymbols>true</DebugSymbols><OutputPath>bin\x86\Debug\</OutputPath><DefineConstants>DEBUG;TRACE;NETFX_CORE</DefineConstants><NoWarn>;2008</NoWarn><DebugType>portable</DebugType><PlatformTarget>x86</PlatformTarget></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'"><OutputPath>bin\x86\Release\</OutputPath><DefineConstants>TRACE;NETFX_CORE</DefineConstants><Optimize>true</Optimize><DebugType>pdbonly</DebugType><PlatformTarget>x86</PlatformTarget></PropertyGroup>
+  <ItemGroup><Compile Include="App.xaml.cs"><DependentUpon>App.xaml</DependentUpon></Compile><Compile Include="MainPage.xaml.cs"><DependentUpon>MainPage.xaml</DependentUpon></Compile><Compile Include="LocalRisk.cs" /></ItemGroup>
+  <ItemGroup><AppxManifest Include="Package.appxmanifest" /><Content Include="Assets\StoreLogo.png" /><Content Include="Assets\Square150x150Logo.png" /><Content Include="Assets\Square44x44Logo.png" /><Content Include="Assets\Wide310x150Logo.png" /></ItemGroup>
+  <ItemGroup><ApplicationDefinition Include="App.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></ApplicationDefinition><Page Include="MainPage.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page></ItemGroup>
+  <ItemGroup><PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" /></ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets')" />
+</Project>

@@ -1,0 +1,32 @@
+# Android/Gradle build output and local IDE configuration
+**/.gradle/
+**/.kotlin/
+**/build/
+**/local.properties
+**/.idea/
+**/.cxx/
+**/captures/
+**/.externalNativeBuild/
+**/.tmp/
+
+# Windows/Visual Studio build output
+**/bin/
+**/obj/
+**/.vs/
+**/AppPackages/
+**/BundleArtifacts/
+*.user
+*.suo
+*.appx
+*.msix
+*.appxbundle
+*.msixbundle
+*.cer
+*.pfx
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+secrets.properties
+credentials.json

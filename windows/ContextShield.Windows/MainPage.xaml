@@ -1,0 +1,12 @@
+<Page x:Class="ContextShield.Windows.MainPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="#101917">
+  <ScrollViewer><StackPanel MaxWidth="760" HorizontalAlignment="Center" Padding="28" Spacing="14">
+    <TextBlock Text="КОНТЕКСТ · АНТИФРОД" Foreground="#A8F0CA" FontSize="14" />
+    <TextBlock Text="Локальный монитор уведомлений" Foreground="White" FontSize="30" TextWrapping="Wrap" />
+    <TextBlock Text="Новые уведомления Windows проверяются на устройстве сразу после поступления. Полный текст не сохраняется и не отправляется. Для фоновой проверки приложение регистрирует системную задачу с отдельным разрешением Windows." Foreground="#B8C8BF" TextWrapping="Wrap" />
+    <Button x:Name="EnableButton" Content="Разрешить доступ к уведомлениям" Click="EnableButton_Click" HorizontalAlignment="Left" />
+    <TextBlock x:Name="StatusText" Text="Доступ не включён" Foreground="#FFD08A" FontSize="17" />
+    <TextBlock x:Name="StatsText" Text="Ожидание разрешения" Foreground="#B8C8BF" TextWrapping="Wrap" />
+    <ListView x:Name="EventsList" Background="#17221F" Foreground="White" MinHeight="170" />
+    <TextBlock Text="Windows может откладывать фоновые задачи по своим правилам энергосбережения; закрытие приложения пользователем остановит обработку. Анализ — локальная эвристика, не подтверждение мошенничества. SDK/доступ к банковской операции не подключён." Foreground="#AAB8AF" TextWrapping="Wrap" FontSize="12" />
+  </StackPanel></ScrollViewer>
+</Page>
