@@ -57,7 +57,7 @@ class LocalRiskTest {
     fun moneyRequestWithRiskyModelGetsNonBlockingVerificationAdvisory() {
         val result = LocalRisk.assess(
             "Илюша, привет. Мне до пятницы нужно 200 рублей. Переведи пожалуйста, на днях верну.",
-            ModelAssessment("dangerous", 0.83f, listOf(0f, 0f, 0f, 0.83f), emptyMap())
+            ModelAssessment("dangerous", 0.68f, listOf(0f, 0f, 0f, 0.68f), emptyMap())
         )
         assertTrue(result.score < ContextRisk.THRESHOLD)
         assertFalse(result.high)
@@ -79,7 +79,10 @@ class LocalRiskTest {
 
     @Test
     fun ordinarySmallTransferDoesNotGetAnInterruptionByDefault() {
-        val result = LocalRisk.assess("Привет, переведи мне пожалуйста 10 рублей на проезд, если тебе удобно.")
+        val result = LocalRisk.assess(
+            "Привет, переведи мне пожалуйста 10 рублей на проезд, если тебе удобно.",
+            ModelAssessment("suspicious", 0.506f, listOf(0f, 0f, 0.506f, 0.461f), emptyMap())
+        )
         assertTrue(result.score < ContextRisk.THRESHOLD)
         assertEquals(null, result.advisory)
     }

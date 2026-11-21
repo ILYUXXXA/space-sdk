@@ -153,8 +153,10 @@ object LocalRisk {
             }
         }
         val modelFlagsPayment = asksForMoney && model != null && when (model.label) {
-            "dangerous" -> model.confidence >= 0.80f
-            "suspicious" -> model.confidence >= 0.84f
+            // This is only an advisory threshold. The bundled model returns 0.68 for the
+            // screenshot's body-only 200 ₽ text; the intent is to step up, never to block.
+            "dangerous" -> model.confidence >= 0.65f
+            "suspicious" -> model.confidence >= 0.80f
             else -> false
         }
         val advisory = when {
