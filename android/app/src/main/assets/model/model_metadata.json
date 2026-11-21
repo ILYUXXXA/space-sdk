@@ -1,0 +1,30 @@
+{
+  "version": "ru-risk-multitask-1",
+  "labels": [
+    "safe",
+    "needs_check",
+    "suspicious",
+    "dangerous"
+  ],
+  "tactics": [
+    "urgency",
+    "impersonation",
+    "phishing_link",
+    "payment_request",
+    "credential_theft",
+    "verification_needed",
+    "investment_or_prize",
+    "remote_access",
+    "secrecy",
+    "job_scam",
+    "marketplace_scam",
+    "third_party",
+    "too_good_to_be_true"
+  ],
+  "max_length": 128,
+  "model_id": "cointegrated/rubert-tiny2",
+  "model_revision": "e8ed3b0c8bbf4fb6984c3de043bf7d2f4e5969ae",
+  "dataset_id": "dokster/adaption-scam-dataset-ru-en-v1",
+  "dataset_revision": "d4141645c5d9c439143604e5e64f7d3651e82942",
+  "model_sha256": "bbc117da6ec6c212b4e233842da3141da0a4d0b1c57cca02760d6f8ef8c6bcbe"
+}

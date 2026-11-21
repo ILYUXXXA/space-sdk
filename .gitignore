@@ -30,3 +30,12 @@
 !.env.example
 secrets.properties
 credentials.json
+
+# Local ML corpus, base checkpoint and generated training artifacts
+/ml/.venv/
+/ml/base-model/
+/ml/data/raw/
+/ml/artifacts/
+/ml/__pycache__/
+**/__pycache__/
+*.py[cod]

@@ -8,11 +8,20 @@ import android.content.Intent
 import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 class MessageNotificationListener : NotificationListenerService() {
     private val seen = ConcurrentHashMap.newKeySet<String>()
     private val channelId = "context_risk_signals"
+    private val worker = ThreadPoolExecutor(
+        1, 1, 0L, TimeUnit.MILLISECONDS, ArrayBlockingQueue(32),
+        { runnable -> Thread(runnable, "contextshield-local-analysis").apply { isDaemon = true } },
+        ThreadPoolExecutor.AbortPolicy()
+    )
 
     override fun onListenerConnected() {
         getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("listener_connected", true).apply()
@@ -26,42 +35,82 @@ class MessageNotificationListener : NotificationListenerService() {
         super.onListenerDisconnected()
     }
 
+    override fun onDestroy() {
+        worker.shutdownNow()
+        getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("listener_connected", false).apply()
+        super.onDestroy()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (sbn.packageName == packageName) return
-        val n = sbn.notification ?: return
+        val notification = sbn.notification ?: return
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs.edit().putInt("received_count", prefs.getInt("received_count", 0) + 1).apply()
-        val text = notificationText(n).trim()
+        val text = notificationText(notification).trim()
         if (text.length < 2) {
-            prefs.edit().putString("last_notification_state", "Получено уведомление без читаемого текста (${sbn.packageName})").apply()
+            prefs.edit().putString("last_notification_state", "Есть уведомление, но система не раскрыла текст")
+                .apply()
             sendBroadcast(Intent(ACTION_STATUS).setPackage(packageName))
             return
         }
-        val key = "${sbn.packageName}:${sbn.id}:${text.hashCode()}"
+
+        // Dedupe key and raw text live only in memory. Nothing is logged or persisted here.
+        val key = "${sbn.key}:${text.hashCode()}"
         if (!seen.add(key)) return
         if (seen.size > 500) seen.clear()
+        val sourcePackage = sbn.packageName
+        try {
+            worker.execute { analyzeAndStore(text.take(4000), sourcePackage) }
+        } catch (_: RejectedExecutionException) {
+            prefs.edit()
+                .putInt("dropped_count", prefs.getInt("dropped_count", 0) + 1)
+                .putString("last_notification_state", "Очередь заполнена; часть уведомлений пропущена")
+                .apply()
+            sendBroadcast(Intent(ACTION_STATUS).setPackage(packageName))
+        }
+    }
 
-        val result = LocalRisk.assess(text)
-        val source = runCatching {
-            val app = packageManager.getApplicationInfo(sbn.packageName, 0)
-            packageManager.getApplicationLabel(app).toString().take(48)
-        }.getOrDefault("Уведомление")
-        val event = RiskEvent(System.currentTimeMillis(), result.score, result.factors, source, PrivacyRedactor.redact(text))
-        RiskHistory.append(prefs, event)
-        val contextRisk = RiskHistory.assess(RiskHistory.read(prefs))
-        val editor = prefs.edit()
-            .putInt("scanned_count", prefs.getInt("scanned_count", 0) + 1)
-            .putString("last_notification_state", "Обработано: $source")
-            .putInt("last_score", result.score)
-            .putInt("context_score", contextRisk.score)
-            .putString("last_factors", result.factors.joinToString("|"))
-            .putLong("last_checked_at", event.at)
-        if (result.high) editor.putInt("high_risk_count", prefs.getInt("high_risk_count", 0) + 1)
-        editor.apply()
-
-        if (contextRisk.blocked) postRiskAlert(contextRisk.factors.ifEmpty { result.factors })
-        sendBroadcast(Intent(ACTION_STATUS).setPackage(packageName))
-        // Raw `text` stays in memory for local scoring/redaction; only redactedContent is saved.
+    private fun analyzeAndStore(text: String, sourcePackage: String) {
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        try {
+            val source = runCatching {
+                val app = packageManager.getApplicationInfo(sourcePackage, 0)
+                packageManager.getApplicationLabel(app).toString().take(48)
+            }.getOrDefault("Уведомление")
+            val model = OnDeviceModel.assess(applicationContext, text)
+            val result = LocalRisk.assess(text, model)
+            val event = RiskEvent(
+                at = System.currentTimeMillis(),
+                score = result.score,
+                factors = result.factors,
+                source = source,
+                modelLabel = result.modelLabel,
+                modelConfidence = result.modelConfidence,
+                modelTactics = result.modelTactics,
+                identityContinuity = "UNKNOWN",
+                signalType = "notification"
+            )
+            RiskHistory.append(applicationContext, event)
+            val contextRisk = RiskHistory.assess(RiskHistory.read(applicationContext))
+            val editor = prefs.edit()
+                .putInt("scanned_count", prefs.getInt("scanned_count", 0) + 1)
+                .putString("last_notification_state", "Уведомление проверено локально")
+                .putInt("last_score", result.score)
+                .putInt("context_score", contextRisk.score)
+                .putString("last_factors", result.factors.joinToString("|"))
+                .putLong("last_checked_at", event.at)
+                .putString("last_model_label", result.modelLabel)
+                .putFloat("last_model_confidence", result.modelConfidence)
+            if (result.high) editor.putInt("high_risk_count", prefs.getInt("high_risk_count", 0) + 1)
+            editor.apply()
+            if (contextRisk.blocked) postRiskAlert(contextRisk.factors.ifEmpty { result.factors })
+        } catch (_: Exception) {
+            // Never include notification contents, model inputs or keys in an error log.
+            prefs.edit().putString("last_notification_state", "Локальный анализ временно недоступен")
+                .apply()
+        } finally {
+            sendBroadcast(Intent(ACTION_STATUS).setPackage(packageName))
+        }
     }
 
     private fun notificationText(n: Notification): String {
@@ -90,16 +139,18 @@ class MessageNotificationListener : NotificationListenerService() {
     }
 
     private fun postRiskAlert(factors: List<String>) {
-        val manager = getSystemService(NotificationManager::class.java)
-        val summary = factors.take(2).joinToString(" · ").ifBlank { "Признаки давления" }
-        val alert = Notification.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle("Проверьте сообщение перед переводом")
-            .setContentText(summary)
-            .setStyle(Notification.BigTextStyle().bigText("Найдены признаки возможного давления: $summary. Свяжитесь с человеком по известному номеру и проверьте получателя отдельно."))
-            .setAutoCancel(true)
-            .build()
-        manager.notify((System.currentTimeMillis() % Int.MAX_VALUE).toInt(), alert)
+        runCatching {
+            val manager = getSystemService(NotificationManager::class.java)
+            val summary = factors.take(2).joinToString(" · ").ifBlank { "Признаки давления" }
+            val alert = Notification.Builder(this, channelId)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle("Проверьте сообщение перед переводом")
+                .setContentText(summary)
+                .setStyle(Notification.BigTextStyle().bigText("Найдены признаки возможного давления: $summary. Свяжитесь с человеком по известному каналу и проверьте получателя отдельно."))
+                .setAutoCancel(true)
+                .build()
+            manager.notify(4201, alert)
+        }
     }
 
     companion object {

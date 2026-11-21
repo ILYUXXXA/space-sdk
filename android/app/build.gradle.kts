@@ -16,9 +16,15 @@ android {
         applicationId = "com.contextshield"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.2.1"
+        versionCode = 4
+        versionName = "0.3.0"
+        // MVP is delivered to the user's current Android phone (64-bit ARM).
+        // Excluding emulator/desktop ABIs keeps the debug APK small enough to distribute.
+        ndk { abiFilters += setOf("arm64-v8a") }
     }
 }
 
-dependencies { }
+dependencies {
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.32.0")
+    testImplementation("junit:junit:4.13.2")
+}

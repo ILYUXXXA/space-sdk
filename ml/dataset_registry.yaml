@@ -1,0 +1,32 @@
+checked_on: 2026-11-21
+datasets:
+  - id: adaption-scam-dataset-ru-en-v1
+    source: https://huggingface.co/datasets/dokster/adaption-scam-dataset-ru-en-v1
+    source_revision: d4141645c5d9c439143604e5e64f7d3651e82942
+    license: Apache-2.0
+    license_url: https://www.apache.org/licenses/LICENSE-2.0
+    languages_used: [ru]
+    rows_available: 2324
+    rows_used: 1124
+    data_kind: synthetic/template-generated; not real user messages
+    allowed_use: local supervised training and evaluation as stated by the dataset card/license
+    attribution_required: true
+    redistribution: do not redistribute raw corpus in APK or repository
+    pii_status: synthetic; still pass through local redaction in the application
+    limitations:
+      - Russian examples are synthetic or translated and skew toward US-flavored scenarios.
+      - Not representative of actual Russian-speaking bank or messenger traffic.
+      - Must not be used to claim production detection quality.
+    excluded_sources:
+      - id: FraudLens RU
+        reason: dataset card reports public Telegram channel sourcing; Telegram API terms prohibit AI/ML use absent written permission.
+        url: https://huggingface.co/datasets/Abdurohman/fraudlens-ru-v1
+  - id: adaption-scam-dataset-ru-en-v1-eval-ru
+    source: https://huggingface.co/datasets/dokster/adaption-scam-dataset-ru-en-v1
+    license: Apache-2.0
+    source_revision: d4141645c5d9c439143604e5e64f7d3651e82942
+    languages_used: [ru]
+    rows_used: 316
+    data_kind: synthetic held-out boundary/evaluation set
+    allowed_use: evaluation only; never used for gradient updates
+    redistribution: do not redistribute raw corpus
