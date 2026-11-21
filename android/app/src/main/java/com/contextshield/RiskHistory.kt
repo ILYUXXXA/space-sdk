@@ -25,23 +25,17 @@ data class RiskEvent(
     val modelConfidence: Float = 0f,
     val modelTactics: Map<String, Float> = emptyMap(),
     val identityContinuity: String = "UNKNOWN",
-    val signalType: String = "notification"
+    val signalType: String = "notification",
+    val advisory: String? = null
 )
 
-data class ContextRisk(val score: Int, val eventCount: Int, val factors: List<String>) {
+data class ContextRisk(val score: Int, val eventCount: Int, val factors: List<String>, val advisory: String? = null) {
     val blocked: Boolean get() = score >= THRESHOLD
 
     companion object {
         const val THRESHOLD = 60
     }
 }
-
-data class GraphSnapshot(
-    val events: List<RiskEvent>,
-    val tacticCounts: Map<String, Int>,
-    val distinctSignalTypes: Set<String>,
-    val identityContinuity: String
-)
 
 object RiskHistory {
     private const val STORE = "context_encrypted_episode_store_v1"
@@ -95,20 +89,8 @@ object RiskHistory {
             (factors.size - 1).coerceAtLeast(0) * 8 +
             (signalEvents.size - 1).coerceAtLeast(0).coerceAtMost(8) * 2 +
             (distinctSignals - 1).coerceAtLeast(0) * 4
-        return ContextRisk(max(strongest, contextual).coerceIn(0, 98), signalEvents.size, factors)
-    }
-
-    fun graph(events: List<RiskEvent>, now: Long = System.currentTimeMillis()): GraphSnapshot {
-        val recent = recent(events, now)
-        val tactics = (recent.flatMap { it.factors } + recent.flatMap { it.modelTactics.keys.map { tactic -> "ML · $tactic" } })
-            .groupingBy { it }.eachCount()
-        return GraphSnapshot(
-            events = recent,
-            tacticCounts = tactics.entries.sortedByDescending { it.value }.take(6).associate { it.key to it.value },
-            distinctSignalTypes = recent.map { it.signalType }.toSet(),
-            // Notification listeners usually do not expose a stable account identity. Never infer one from a display name.
-            identityContinuity = "UNKNOWN"
-        )
+        val advisory = signalEvents.asSequence().filter { !it.advisory.isNullOrBlank() }.maxByOrNull { it.at }?.advisory
+        return ContextRisk(max(strongest, contextual).coerceIn(0, 98), signalEvents.size, factors, advisory)
     }
 
     @Synchronized
@@ -177,6 +159,7 @@ object RiskHistory {
                 })
                 put("identity_continuity", "UNKNOWN")
                 put("signal_type", event.signalType.take(32))
+                event.advisory?.take(500)?.let { put("advisory", it) }
             })
         }
         return array.toString()
@@ -198,7 +181,8 @@ object RiskHistory {
                     objectValue.keys().asSequence().take(8).associateWith { key -> objectValue.optDouble(key, 0.0).toFloat().coerceIn(0f, 1f) }
                 }.orEmpty(),
                 identityContinuity = "UNKNOWN",
-                signalType = item.optString("signal_type", "notification").take(32)
+                signalType = item.optString("signal_type", "notification").take(32),
+                advisory = item.optString("advisory").takeIf { it.isNotBlank() }?.take(500)
             )
         }
     }

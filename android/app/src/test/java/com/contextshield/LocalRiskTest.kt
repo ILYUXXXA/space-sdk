@@ -50,5 +50,37 @@ class LocalRiskTest {
         )
         assertEquals(0, result.score)
         assertFalse(result.high)
+        assertEquals(null, result.advisory)
+    }
+
+    @Test
+    fun moneyRequestWithRiskyModelGetsNonBlockingVerificationAdvisory() {
+        val result = LocalRisk.assess(
+            "Илюша, привет. Мне до пятницы нужно 200 рублей. Переведи пожалуйста, на днях верну.",
+            ModelAssessment("dangerous", 0.83f, listOf(0f, 0f, 0f, 0.83f), emptyMap())
+        )
+        assertTrue(result.score < ContextRisk.THRESHOLD)
+        assertFalse(result.high)
+        assertTrue(result.advisory.orEmpty().contains("подтвердите её звонком"))
+    }
+
+    @Test
+    fun slangMoneyRequestWithDoxxingThreatGetsSpecificAdvisoryWithoutAutomaticBlock() {
+        val result = LocalRisk.assess(
+            "Фастиком денежку 50 зелёных на картейку иначе докс и сват",
+            ModelAssessment("dangerous", 0.99f, listOf(0f, 0f, 0f, 0.99f), emptyMap())
+        )
+        assertTrue(result.score in 40 until ContextRisk.THRESHOLD)
+        assertFalse(result.high)
+        assertEquals("money_extortion", result.messageKind)
+        assertTrue(result.factors.any { it.contains("вымогательства", ignoreCase = true) })
+        assertTrue(result.advisory.orEmpty().contains("угрозой раскрыть личные данные"))
+    }
+
+    @Test
+    fun ordinarySmallTransferDoesNotGetAnInterruptionByDefault() {
+        val result = LocalRisk.assess("Привет, переведи мне пожалуйста 10 рублей на проезд, если тебе удобно.")
+        assertTrue(result.score < ContextRisk.THRESHOLD)
+        assertEquals(null, result.advisory)
     }
 }

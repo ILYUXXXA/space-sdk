@@ -88,7 +88,8 @@ class MessageNotificationListener : NotificationListenerService() {
                 modelConfidence = result.modelConfidence,
                 modelTactics = result.modelTactics,
                 identityContinuity = "UNKNOWN",
-                signalType = "notification"
+                signalType = "notification",
+                advisory = result.advisory
             )
             RiskHistory.append(applicationContext, event)
             val contextRisk = RiskHistory.assess(RiskHistory.read(applicationContext))
@@ -103,7 +104,13 @@ class MessageNotificationListener : NotificationListenerService() {
                 .putFloat("last_model_confidence", result.modelConfidence)
             if (result.high) editor.putInt("high_risk_count", prefs.getInt("high_risk_count", 0) + 1)
             editor.apply()
-            if (contextRisk.blocked) postRiskAlert(contextRisk.factors.ifEmpty { result.factors })
+            when {
+                contextRisk.blocked -> postRiskAlert(
+                    "Перевод приостановлен",
+                    "Найдены несколько сильных признаков риска: ${contextRisk.factors.take(2).joinToString(" · ")}. Проверьте ситуацию по известному каналу."
+                )
+                result.advisory != null -> postRiskAlert("Проверьте просьбу о переводе", result.advisory)
+            }
         } catch (_: Exception) {
             // Never include notification contents, model inputs or keys in an error log.
             prefs.edit().putString("last_notification_state", "Локальный анализ временно недоступен")
@@ -138,15 +145,14 @@ class MessageNotificationListener : NotificationListenerService() {
         }
     }
 
-    private fun postRiskAlert(factors: List<String>) {
+    private fun postRiskAlert(title: String, message: String) {
         runCatching {
             val manager = getSystemService(NotificationManager::class.java)
-            val summary = factors.take(2).joinToString(" · ").ifBlank { "Признаки давления" }
             val alert = Notification.Builder(this, channelId)
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                .setContentTitle("Проверьте сообщение перед переводом")
-                .setContentText(summary)
-                .setStyle(Notification.BigTextStyle().bigText("Найдены признаки возможного давления: $summary. Свяжитесь с человеком по известному каналу и проверьте получателя отдельно."))
+                .setContentTitle(title)
+                .setContentText(message.take(110))
+                .setStyle(Notification.BigTextStyle().bigText(message))
                 .setAutoCancel(true)
                 .build()
             manager.notify(4201, alert)

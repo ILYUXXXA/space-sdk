@@ -32,9 +32,7 @@ class MainActivity : Activity() {
     private lateinit var metrics: TextView
     private lateinit var gate: TextView
     private lateinit var transfer: Button
-    private lateinit var graph: RiskTrendView
-    private lateinit var contextGraph: ContextGraphView
-    private lateinit var graphInfo: TextView
+    private lateinit var episodeChain: LinearLayout
     private lateinit var events: TextView
     private lateinit var sourceState: TextView
     private lateinit var cloudState: TextView
@@ -80,23 +78,15 @@ class MainActivity : Activity() {
         })
 
         page.addView(card(0xFFFFFFFF.toInt()).apply {
-            addView(label("Контекст эпизода · 30 минут", 18, 0xFF14251E.toInt()))
+            addView(label("Что связано в эпизоде", 18, 0xFF14251E.toInt()))
             metrics = label("", 14, 0xFF64736B.toInt(), 6)
             addView(metrics)
-            contextGraph = ContextGraphView(this@MainActivity).apply {
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(190))
-                setBackgroundColor(0xFFF7FAF8.toInt())
+            episodeChain = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             }
-            addView(contextGraph)
-            addView(label("Граф факторов: источник → эпизод → признаки. Он не связывает отправителя с человеком по имени или нику.", 11, 0xFF78857E.toInt(), 4))
-            graph = RiskTrendView(this@MainActivity).apply {
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(130))
-                setBackgroundColor(0xFFF7FAF8.toInt())
-            }
-            addView(graph)
-            addView(label("Локальный риск 0–100 · порог демо-паузы 60", 11, 0xFF78857E.toInt(), 4))
-            graphInfo = label("", 13, 0xFF64736B.toInt(), 8)
-            addView(graphInfo)
+            addView(episodeChain)
+            addView(label("Связь здесь означает только соседство по времени за 30 минут. Приложение не устанавливает, кто именно отправил сообщение: имя и ник не подтверждают личность.", 12, 0xFF78857E.toInt(), 8))
         })
         page.addView(card(0xFFFFFFFF.toInt()).apply {
             addView(label("События и объяснение", 18, 0xFF14251E.toInt()))
@@ -113,16 +103,16 @@ class MainActivity : Activity() {
         accessCard.addView(button("Включить доступ к уведомлениям") {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         })
-        accessCard.addView(button("Подключить узкий сигнал приложений удалённого доступа") {
+        accessCard.addView(button("Включить дополнительный сигнал удалённой помощи") {
             explainUsageAccess()
         })
-        accessCard.addView(button("Проверить близкого через системный выбор контакта") {
+        accessCard.addView(button("Позвонить по сохранённому номеру") {
             pickKnownContact()
         })
         accessCard.addView(button("Разрешить системные предупреждения") {
             if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7)
         })
-        accessCard.addView(label("Статистика использования проверяется один раз только при нажатии «Перевести» в активном эпизоде и при отдельном разрешении. Контакт не заносится в список доверенных; номер не сохраняется.", 12, 0xFF78857E.toInt(), 6))
+        accessCard.addView(label("Дополнительные сигналы необязательны и не нужны для локальной проверки уведомлений. UsageStats ищет только недавний запуск нескольких приложений удалённой помощи. Кнопка звонка лишь помогает самостоятельно проверить просьбу: она не подтверждает личность, не меняет оценку и не сохраняет номер.", 12, 0xFF78857E.toInt(), 6))
         page.addView(accessCard)
 
         page.addView(card(0xFFFFFFFF.toInt()).apply {
@@ -132,6 +122,18 @@ class MainActivity : Activity() {
                 runPresetScenario(
                     "Привет, мам, я потерял телефон, это мой новый номер. Срочно переведи 1000 долларов на операцию, никому не говори.",
                     "Синтетический кейс: новый номер + срочный перевод"
+                )
+            })
+            addView(button("Демо: просьба о деньгах с угрозой доксинга/свата") {
+                runPresetScenario(
+                    "Фастиком денежку 50 зелёных на картейку иначе докс и сват",
+                    "Сценарий с угрозой и вымогательством"
+                )
+            })
+            addView(button("Демо: просьба о небольшой сумме, модель советует перепроверить") {
+                runPresetScenario(
+                    "Илюша, привет. Мне до пятницы нужно 200 рублей. Переведи пожалуйста, на днях верну.",
+                    "Просьба о переводе: дополнительная проверка"
                 )
             })
             addView(button("Демо: обычная просьба на небольшую сумму") {
@@ -158,7 +160,7 @@ class MainActivity : Activity() {
         cloudCard.addView(button("Удалить ключ с телефона") { CloudReview.clearKey(this); refresh() })
         page.addView(cloudCard)
 
-        page.addView(button("Сбросить сессию и граф") {
+        page.addView(button("Сбросить сессию и историю") {
             AlertDialog.Builder(this).setTitle("Сбросить локальную историю?")
                 .setMessage("Удалятся зашифрованные события эпизода и счётчики. Ключ OpenRouter и лимит запросов останутся.")
                 .setNegativeButton("Отмена", null)
@@ -223,33 +225,63 @@ class MainActivity : Activity() {
         }
         val modelConfidence = p.getFloat("last_model_confidence", 0f)
         val modelLabel = p.getString("last_model_label", "unknown") ?: "unknown"
-        metrics.text = "Получено: ${p.getInt("received_count", 0)}  ·  локально проверено: ${p.getInt("scanned_count", 0)}  ·  очередь пропустила: ${p.getInt("dropped_count", 0)}\nПоследнее: ${p.getString("last_notification_state", "уведомлений пока не было")}\nСигналов эпизода: ${risk.eventCount}  ·  риск: ${risk.score}/98  ·  модель: ${labelRu(modelLabel)} ${if (modelConfidence > 0f) "${(modelConfidence * 100).toInt()}%" else "не готова"}${cloudScore?.let { "  ·  мнение облака: $it/100" } ?: ""}"
-        val graphEvents = RiskHistory.recent(history)
-        graph.setValues(graphEvents.mapIndexed { index, event -> RiskHistory.assess(graphEvents.take(index + 1), event.at).score }.takeLast(12))
-        val snapshot = RiskHistory.graph(history)
-        contextGraph.setSnapshot(snapshot)
-        graphInfo.text = "Узлы: ${snapshot.events.size} событий · ${snapshot.tacticCounts.size} повторяющихся/разных сигналов · источники: ${snapshot.distinctSignalTypes.joinToString().ifBlank { "пока нет" }}\nИдентичность отправителя: ${snapshot.identityContinuity}; имя или ник не наследует доверие."
+        val recentEvents = RiskHistory.recent(history)
+        val signalCount = recentEvents.count { it.score > 0 || it.factors.isNotEmpty() || it.advisory != null }
+        val sourceCount = recentEvents.map { it.source }.distinct().size
+        metrics.text = "За 30 минут: ${recentEvents.size} событий · $signalCount с признаками · $sourceCount источников\nПолучено всего: ${p.getInt("received_count", 0)} · проверено локально: ${p.getInt("scanned_count", 0)} · пропущено очередью: ${p.getInt("dropped_count", 0)}\nРиск эпизода: ${risk.score}/98 · последнее: ${p.getString("last_notification_state", "уведомлений пока не было")}${cloudScore?.let { " · мнение облака: $it/100" } ?: ""}"
+        renderEpisodeChain(recentEvents)
         transfer.isEnabled = !blocked
-        transfer.setBackgroundColor(if (blocked) 0xFF78857E.toInt() else 0xFF16875C.toInt())
+        transfer.text = when { blocked -> "Перевод приостановлен"; risk.advisory != null -> "Проверить перед переводом"; else -> "Перевести" }
+        transfer.setBackgroundColor(when { blocked -> 0xFF78857E.toInt(); risk.advisory != null -> 0xFFB97718.toInt(); else -> 0xFF16875C.toInt() })
         gate.text = if (blocked) {
             "⛔ Демо-перевод приостановлен локальной policy (≥${ContextRisk.THRESHOLD}). ${risk.factors.joinToString(" · ").ifBlank { "Совокупность сигналов" }}. Проверьте человека по известному каналу."
+        } else if (risk.advisory != null) {
+            "⚠ ПРОВЕРКА РЕКОМЕНДОВАНА. ${risk.advisory}"
         } else {
             "✓ Кнопка доступна: локальный риск ниже ${ContextRisk.THRESHOLD}. Это не доказательство безопасности — проверьте получателя отдельно."
         }
         val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
         events.text = if (history.isEmpty()) "Пока нет событий. Разреши Android-доступ к уведомлениям или запусти синтетический демо-кейс." else
             RiskHistory.recent(history).takeLast(7).asReversed().joinToString("\n\n") { event ->
-                val confidence = if (event.modelConfidence > 0f) " · модель ${labelRu(event.modelLabel)} ${(event.modelConfidence * 100).toInt()}%" else ""
+                val confidence = if (event.modelConfidence > 0f) " · класс модели ${labelRu(event.modelLabel)}, уверенность ${(event.modelConfidence * 100).toInt()}% (не вероятность мошенничества)" else ""
                 val tacticLine = event.modelTactics.keys.take(3).takeIf { it.isNotEmpty() }
                     ?.joinToString(", ")?.let { "\nТактики модели: $it" }.orEmpty()
                 "${formatter.format(Date(event.at))} · ${event.source} · риск ${event.score}/98$confidence\n${event.factors.joinToString(" · ").ifBlank { "Сильных признаков правилами не найдено" }}$tacticLine"
             }.ifBlank { "Активных событий за 30 минут нет." }
         val usageEnabled = UsageSignals.hasAccess(this)
-        sourceState.text = "Модель: ${if (OnDeviceModel.status().startsWith("Локальная модель недоступна")) OnDeviceModel.status() else "RuBERT-tiny2 fine-tuned · ONNX INT8 · на устройстве"}\nUsageStats: ${if (usageEnabled) "opt-in включён; короткий запрос выполняется только при нажатии перевода" else "выключен; сам не запрашивается"}\nКонтакт: системный picker + dialer; выбранный номер не хранится."
+        sourceState.text = "Модель: ${if (OnDeviceModel.status().startsWith("Локальная модель недоступна")) OnDeviceModel.status() else "RuBERT-tiny2 fine-tuned · ONNX INT8 · на устройстве"}\nUsageStats: ${if (usageEnabled) "opt-in включён; короткий запрос выполняется только при нажатии перевода" else "выключен; сам не запрашивается"}\nПроверочный звонок: только открывает системный набор; не устанавливает личность и не влияет на риск."
         val used = CloudReview.attempts(this)
         cloudState.text = "${if (CloudReview.hasKey(this)) "Ключ зашифрован Android Keystore" else "Ключ не добавлен"} · запросов $used/${CloudReview.MAX_ATTEMPTS}${cloudScore?.let { " · ответ модели $it/100" } ?: ""}\nПередаются только разрешённые категории сигналов, грубые интервалы и локальные оценки. Текст сообщений, имя отправителя, номер, package ID и точное время не передаются. Только по кнопке; cloud-ответ не открывает и не блокирует демо-перевод."
         cloudButton.isEnabled = CloudReview.hasKey(this) && used < CloudReview.MAX_ATTEMPTS
         cloudButton.alpha = if (cloudButton.isEnabled) 1f else 0.45f
+    }
+
+    private fun renderEpisodeChain(recent: List<RiskEvent>) {
+        episodeChain.removeAllViews()
+        val shown = recent.takeLast(5)
+        if (shown.isEmpty()) {
+            episodeChain.addView(label("Пока нет сигналов. После уведомления здесь появится источник, найденные признаки и объяснение решения.", 13, 0xFF64736B.toInt(), 8))
+            return
+        }
+        val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
+        shown.forEachIndexed { index, event ->
+            if (index > 0) episodeChain.addView(label("↓  следующий сигнал в том же 30-минутном окне", 11, 0xFF78857E.toInt(), 4))
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                setBackgroundColor(if (event.advisory != null) 0xFFFFF5E4.toInt() else 0xFFF3F6F4.toInt())
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) }
+            }
+            row.addView(label("${formatter.format(Date(event.at))}  ·  ${event.source}", 14, 0xFF14251E.toInt()))
+            row.addView(label("Проверено на устройстве · риск события ${event.score}/98", 12, 0xFF64736B.toInt(), 3))
+            val findings = event.factors.joinToString(" · ").ifBlank { "Явных признаков локальными правилами не найдено" }
+            row.addView(label(findings, 13, 0xFF14251E.toInt(), 5))
+            if (event.modelConfidence > 0f) {
+                row.addView(label("Класс модели: ${labelRu(event.modelLabel)} · уверенность ${(event.modelConfidence * 100).toInt()}% (не вероятность мошенничества)", 12, 0xFF64736B.toInt(), 5))
+            }
+            if (event.advisory != null) row.addView(label("Рекомендация: ${event.advisory}", 13, 0xFF8A570F.toInt(), 5))
+            episodeChain.addView(row)
+        }
     }
 
     private fun explainUsageAccess() {
@@ -283,13 +315,13 @@ class MainActivity : Activity() {
                 at = System.currentTimeMillis(), score = signal.score, factors = signal.factors,
                 source = "Синтетический демо-кейс", modelLabel = signal.modelLabel,
                 modelConfidence = signal.modelConfidence, modelTactics = signal.modelTactics,
-                identityContinuity = "UNKNOWN", signalType = "synthetic_demo"
+                identityContinuity = "UNKNOWN", signalType = "synthetic_demo", advisory = signal.advisory
             ))
             runOnUiThread {
                 refresh()
                 AlertDialog.Builder(this)
                     .setTitle(title)
-                    .setMessage("Локальная policy: ${signal.score}/98 · модель: ${labelRu(signal.modelLabel)} ${if (signal.modelConfidence > 0) "${(signal.modelConfidence * 100).toInt()}%" else "недоступна"}\n\n${signal.factors.joinToString("\n").ifBlank { "Опасные локальные признаки не обнаружены." }}\n\nТекст кейса не сохранён.")
+                    .setMessage("Локальная policy: ${signal.score}/98 · класс модели: ${labelRu(signal.modelLabel)} · уверенность ${if (signal.modelConfidence > 0) "${(signal.modelConfidence * 100).toInt()}%" else "недоступна"} (не вероятность мошенничества)\n\n${signal.factors.joinToString("\n").ifBlank { "Опасные локальные признаки не обнаружены." }}${signal.advisory?.let { "\n\nРекомендация: $it" } ?: ""}\n\nТекст кейса не сохранён.")
                     .setPositiveButton("Понятно", null).show()
             }
         }
@@ -314,6 +346,15 @@ class MainActivity : Activity() {
             AlertDialog.Builder(this).setTitle("Демо-перевод приостановлен")
                 .setMessage("Перед нажатием появился дополнительный контекст. ${risk.factors.joinToString(" · ")}\n\nЭто только демо. Проверьте получателя через известный канал.")
                 .setPositiveButton("Понятно", null).show()
+        } else if (risk.advisory != null) {
+            AlertDialog.Builder(this).setTitle("Перед переводом проверьте просьбу")
+                .setMessage("${risk.advisory}\n\nДемо-перевод не заблокирован. Продолжайте только если вы проверили просьбу независимо от этого чата.")
+                .setNegativeButton("Отмена", null)
+                .setPositiveButton("Я проверил — продолжить демо") { _, _ ->
+                    AlertDialog.Builder(this).setTitle("Демо-перевод доступен")
+                        .setMessage("Реальный перевод не выполняется.")
+                        .setPositiveButton("Закрыть", null).show()
+                }.show()
         } else {
             AlertDialog.Builder(this).setTitle("Демо-перевод доступен")
                 .setMessage("Локальная проверка не набрала порог риска. Это демонстрация интерфейса: настоящий перевод не выполняется.")

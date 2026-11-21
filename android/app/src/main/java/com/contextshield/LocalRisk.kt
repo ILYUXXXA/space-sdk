@@ -6,7 +6,9 @@ data class RiskSignal(
     val modelLabel: String = "unknown",
     val modelConfidence: Float = 0f,
     val modelTactics: Map<String, Float> = emptyMap(),
-    val messageKind: String = "incoming_request"
+    val messageKind: String = "incoming_request",
+    /** A focused, non-blocking verification prompt. Null means do not interrupt the user. */
+    val advisory: String? = null
 ) {
     val high: Boolean get() = score >= ContextRisk.THRESHOLD
 }
@@ -14,10 +16,11 @@ data class RiskSignal(
 /** Explainable local policy. The ML classifier can add bounded evidence but never blocks alone. */
 object LocalRisk {
     private val moneyAction = Regex(
-        "(?<!\\p{L})(перевед\\w*|скинь|пришли|отправь|закинь|одолжи|дай|займи|оплат\\w*|пополн\\w*|перебрось|кинь)(?!\\p{L})|нужн[аоы]?\\s+(?:деньг|сумм|тысяч)|помоги\\s+(?:деньгами|суммой)",
-        RegexOption.IGNORE_CASE
+        "(?iu)(?<!\\p{L})(?:перевед|скин|пришл|отправ|закин|одолж|дай|займ|оплат|пополн|переброс|кин|фастик)[\\p{L}]*|нужн[аоы]?\\s+(?:деньг|сумм|тысяч)|помоги\\s+(?:деньгами|суммой)"
     )
-    private val moneyAmount = Regex("(?iu)(?:\\d[\\d\\s.,]*\\s?(?:₽|руб(?:лей|ля|ль)?|р\\.?|доллар\\w*|usd|eur|€|\\$)|(?:тысяч[уае]?|сотн[яюи]?|пара тысяч))")
+    private val moneyAmount = Regex("(?iu)(?:\\d[\\d\\s.,]*\\s?(?:₽|руб(?:лей|ля|ль)?|р\\.?|доллар[\\p{L}]*|зел[её]н[\\p{L}]*|usd|eur|€|\\$)|(?:тысяч[уае]?|сотн[яюи]?|пара тысяч))")
+    private val moneyMention = Regex("(?iu)(?:деньг[\\p{L}]*|ден[её]жк[\\p{L}]*|денюжк[\\p{L}]*|бабл[\\p{L}]*|бабк[\\p{L}]*|бабос[\\p{L}]*|зел[её]н[\\p{L}]*|руб[\\p{L}]*|доллар[\\p{L}]*|usd|eur|евр[\\p{L}]*|₽|€|\\$)")
+    private val paymentDestination = Regex("(?iu)(?:на\\s+(?:карт[\\p{L}]*|сч[её]т[\\p{L}]*|номер|реквизит[\\p{L}]*|кошел[её]к[\\p{L}]*)|по\\s+(?:номер|реквизит[\\p{L}]*))")
     private val urgency = Regex(
         "срочн|немедленно|прямо сейчас|сейчас же|как можно скорее|времени нет|быстрее|последний шанс|пока не поздно|до конца дня|сегодня до",
         RegexOption.IGNORE_CASE
@@ -29,6 +32,9 @@ object LocalRisk {
     private val secrecy = Regex(
         "никому не (говори|сообщай|рассказывай)|держи в секрете|не рассказывай|не клади трубку|не звони.{0,20}(мне|никому)|не говори.{0,20}(родител|семь|мужу|жене)",
         RegexOption.IGNORE_CASE
+    )
+    private val extortionThreat = Regex(
+        "(?iu)(?:\\bдокс(?:инг)?\\b|\\bдоксн[уи]\\b|\\bсват(?:инг)?\\b|\\bсватн[уи]\\b|иначе.{0,35}(?:докс|сват)|вылож[уи].{0,30}(?:адрес|номер|фото|переписк|данн)|опубликую.{0,30}(?:адрес|номер|фото|данн)|разглаш[уи].{0,30}(?:данн|переписк))"
     )
     private val codeWord = Regex("(?iu)(?:\\bкод\\b|код.{0,24}(?:sms|смс|подтвержден)|(?:sms|смс).{0,24}код|одноразов.{0,15}код|cvc|cvv|пин-код|пароль|данные карты)")
     private val codeRequest = Regex("(?iu)(?:назови|продиктуй|пришли|отправь|сообщи|скажи|введи|подтверди|перешли|передай|дай|скинь).{0,36}(?:код|пароль|пин|cvv|cvc)|(?:код|пароль|пин|cvv|cvc).{0,36}(?:назови|продиктуй|пришли|отправь|сообщи|скажи|введи|передай|дай|скинь)")
@@ -75,9 +81,12 @@ object LocalRisk {
         }
 
         val safelyWarns = safeInstruction.containsMatchIn(normalized)
+        val threatensDoxxing = extortionThreat.containsMatchIn(normalized)
+        val hasMoneyMention = moneyMention.containsMatchIn(normalized)
         val asksForMoney = !safelyWarns && (moneyAction.containsMatchIn(normalized) ||
             (moneyAmount.containsMatchIn(normalized) && (asksForHelp.containsMatchIn(normalized) ||
-                (emergencyPretext.containsMatchIn(normalized) && urgency.containsMatchIn(normalized)))))
+                (emergencyPretext.containsMatchIn(normalized) && urgency.containsMatchIn(normalized)))) ||
+            (threatensDoxxing && hasMoneyMention && paymentDestination.containsMatchIn(normalized)))
         val isUrgent = urgency.containsMatchIn(normalized)
         val hasEmergency = emergencyPretext.containsMatchIn(normalized)
         val asksForSecret = secrecy.containsMatchIn(normalized)
@@ -94,6 +103,11 @@ object LocalRisk {
         var score = 0
         val factors = mutableListOf<String>()
         if (asksForMoney) { score += 14; factors += "Просьба о деньгах или переводе" }
+        val moneyExtortion = asksForMoney && threatensDoxxing && (hasMoneyMention || moneyAction.containsMatchIn(normalized))
+        if (moneyExtortion) {
+            score += 42
+            factors += "Денежная просьба связана с угрозой доксинга/свата — признак вымогательства"
+        }
         if (isUrgent) { score += 20; factors += "Давление срочностью" }
         if (hasEmergency) { score += 14; factors += "Легенда о срочной проблеме" }
         if (asksForSecret) { score += 30; factors += "Просьба скрыть разговор" }
@@ -120,7 +134,9 @@ object LocalRisk {
 
         // A small calibrated-model contribution is allowed only when independent local evidence exists.
         // The synthetic training set is not sufficient to make the model a standalone payment gate.
-        if (score > 0 && model != null) {
+        // The targeted extortion case is deliberately an advisory for one event. Do not let the
+        // classifier turn that same event into a hard hold; independent later signals still count.
+        if (score > 0 && model != null && !moneyExtortion) {
             when {
                 model.label == "dangerous" && model.confidence >= 0.86f -> {
                     score += 8
@@ -136,14 +152,29 @@ object LocalRisk {
                 }
             }
         }
-        val kind = if (score == 0 && asksForMoney) "ordinary_or_ambiguous_request" else "incoming_request"
+        val modelFlagsPayment = asksForMoney && model != null && when (model.label) {
+            "dangerous" -> model.confidence >= 0.80f
+            "suspicious" -> model.confidence >= 0.84f
+            else -> false
+        }
+        val advisory = when {
+            moneyExtortion -> "В сообщении просьба о деньгах связана с угрозой раскрыть личные данные или устроить сватинг. Это похоже на вымогательство. Не переводите под давлением; сохраните сообщение и проверьте ситуацию по независимому каналу."
+            modelFlagsPayment -> "Есть просьба перевести деньги, и локальная модель отметила сходство с рискованными сообщениями (уверенность класса ${(model!!.confidence * 100).toInt()}%, это не вероятность мошенничества). Перевод не приостановлен: если просьба неожиданна, подтвердите её звонком по уже известному номеру."
+            else -> null
+        }
+        val kind = when {
+            moneyExtortion -> "money_extortion"
+            score == 0 && asksForMoney -> "ordinary_or_ambiguous_request"
+            else -> "incoming_request"
+        }
         return RiskSignal(
             score = score.coerceIn(0, 98),
             factors = factors.distinct(),
             modelLabel = model?.label ?: "unknown",
             modelConfidence = model?.confidence ?: 0f,
             modelTactics = predictedTactics,
-            messageKind = kind
+            messageKind = kind,
+            advisory = advisory
         )
     }
 

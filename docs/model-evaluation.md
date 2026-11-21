@@ -24,10 +24,17 @@ These figures are reproducible pipeline evidence only. The boundary set is also 
 
 - The model is a local triage signal, not evidence that a person is a scammer.
 - A model prediction by itself cannot pause the demo transfer. The local rule/context policy needs independent evidence.
+- A high `dangerous`/`suspicious` score paired with a locally recognized money request can show a **non-blocking verification advisory**. This is a narrow step-up prompt, not a fraud verdict. A small ordinary request without the model signal is not interrupted by that advisory rule.
+- A money request explicitly paired with doxxing/swatting threats receives a specific extortion warning, while a single event stays below the demo pause threshold. Repeated or additional independent evidence can still increase the episode score and trigger the demo hold.
+- Russian slang/elliptical wording remains a known coverage limit. The local rules cover the tested forms `зелёных`, `картейку`, `докс`, and `сват`; this does not imply broad coverage of slang, misspellings, voice transcription errors, or coded language.
 - `safe` is not proof of safety; hidden/absent notification text means insufficient context.
 - Display name/nickname does not identify a sender or inherit trust. Notification sender continuity remains `UNKNOWN` without an official stable platform ID.
 - No latency or memory claim is made until measured on the target Xiaomi phone. The model file is ~29.3 MB; the final universal APK may be larger because it also packages ONNX Runtime native libraries.
 - The demo button is not connected to a bank and does not transfer or block real money.
 - Do not use this model for real transaction decisions until validated on consented, rights-cleared traffic and independently reviewed for false positives, false negatives, calibration, and Android device coverage.
+
+## Targeted regressions added
+
+The Android unit suite includes the screenshot-style examples: a benign 10 ₽ request remains unblocked and has no automatic interruption; the 200 ₽ request gets a verification advisory when the on-device model returns `dangerous` at 83%; and the slang request `Фастиком денежку 50 зелёных на картейку иначе докс и сват` gets an extortion warning without a single-event hard block. These are policy tests with a supplied model result, not a claim that the model will always produce that result on all paraphrases.
 
 To reproduce, follow [`ml/README.md`](../ml/README.md). The exact downloaded source revisions and SHA-256 values are recorded in `ml/dataset_registry.yaml` and `ml/artifacts/metrics.json` (the latter is local and git-ignored).
