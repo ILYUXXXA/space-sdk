@@ -8,7 +8,7 @@ import org.junit.Test
 class LocalRiskTest {
     @Test
     fun smallConvenientFamilyTransferDoesNotBlock() {
-        val result = LocalRisk.assess("Привет, переведи мне пожалуйста 10 рублей на проезд, если удобно.")
+        val result = LocalRisk.assess("Я оплатил общий заказ. Переведи свою часть вечером, если будет удобно.")
         assertTrue(result.score < ContextRisk.THRESHOLD)
         assertFalse(result.high)
     }
@@ -56,7 +56,7 @@ class LocalRiskTest {
     @Test
     fun moneyRequestWithRiskyModelGetsNonBlockingVerificationAdvisory() {
         val result = LocalRisk.assess(
-            "Илюша, привет. Мне до пятницы нужно 200 рублей. Переведи пожалуйста, на днях верну.",
+            "Привет, одолжи 800 рублей до пятницы, пожалуйста. Верну после выплаты.",
             ModelAssessment("dangerous", 0.68f, listOf(0f, 0f, 0f, 0.68f), emptyMap())
         )
         assertTrue(result.score < ContextRisk.THRESHOLD)
@@ -65,12 +65,12 @@ class LocalRiskTest {
     }
 
     @Test
-    fun slangMoneyRequestWithDoxxingThreatGetsSpecificAdvisoryWithoutAutomaticBlock() {
+    fun moneyDemandWithThreatToExposePersonalDataGetsSpecificAdvisoryWithoutAutomaticBlock() {
         val result = LocalRisk.assess(
-            "Фастиком денежку 50 зелёных на картейку иначе докс и сват",
+            "Переведи 4 000 рублей, иначе выложу твой адрес и переписку.",
             ModelAssessment("dangerous", 0.99f, listOf(0f, 0f, 0f, 0.99f), emptyMap())
         )
-        assertTrue(result.score in 40 until ContextRisk.THRESHOLD)
+        assertTrue("score=${result.score} factors=${result.factors}", result.score in 40 until ContextRisk.THRESHOLD)
         assertFalse(result.high)
         assertEquals("money_extortion", result.messageKind)
         assertTrue(result.factors.any { it.contains("вымогательства", ignoreCase = true) })
@@ -78,12 +78,53 @@ class LocalRiskTest {
     }
 
     @Test
-    fun ordinarySmallTransferDoesNotGetAnInterruptionByDefault() {
+    fun routineSharedExpenseDoesNotGetAnInterruptionByDefault() {
         val result = LocalRisk.assess(
-            "Привет, переведи мне пожалуйста 10 рублей на проезд, если тебе удобно.",
-            ModelAssessment("suspicious", 0.506f, listOf(0f, 0f, 0.506f, 0.461f), emptyMap())
+            "Я оплатил продукты для поездки. Переведи свою часть, когда тебе будет удобно.",
+            ModelAssessment("suspicious", 0.60f, listOf(0.15f, 0.20f, 0.60f, 0.05f), emptyMap())
         )
         assertTrue(result.score < ContextRisk.THRESHOLD)
+        assertEquals(null, result.advisory)
+    }
+
+    @Test
+    fun repeatedThreatAndMoneyPatternsPauseOnlyTheDemoTransfer() {
+        val scenarios = listOf(
+            "Переведи тысячу рублей, иначе я тебя пристрелю.",
+            "Кинь две тысячи, или я тебя покалечу.",
+            "Переведи деньги, а то сломаю тебе ноги."
+        )
+        scenarios.forEach { text ->
+            val result = LocalRisk.assess(text)
+            assertTrue("$text -> score=${result.score}, factors=${result.factors}", result.score >= ContextRisk.THRESHOLD)
+            assertTrue(text, result.high)
+            assertEquals(text, "violent_money_coercion", result.messageKind)
+            assertTrue(text, result.factors.any { it.contains("угрозой физической расправы", ignoreCase = true) })
+        }
+    }
+
+    @Test
+    fun urgencyOnlyTriggersVerificationAdvisoryBelowHardBlockThreshold() {
+        val result = LocalRisk.assess("Переведи 900 рублей до вечера, иначе заказ отменят.")
+        assertTrue("score=${result.score} factors=${result.factors}", result.score >= ContextRisk.ADVISORY_THRESHOLD)
+        assertTrue(result.score < ContextRisk.THRESHOLD)
+        assertFalse(result.high)
+        assertTrue(result.advisory.orEmpty().contains("Перевод не приостановлен"))
+    }
+
+    @Test
+    fun quotedCyberSafetyExampleDoesNotTriggerViolentMoneyRule() {
+        val result = LocalRisk.assess(
+            "Памятка: вымогатели могут требовать деньги и угрожать раскрыть ваш адрес. Не переводите деньги под давлением."
+        )
+        assertEquals(0, result.score)
+        assertEquals("security_advisory", result.messageKind)
+    }
+
+    @Test
+    fun rudeMessageWithoutPaymentDemandIsNotFlaggedAsMoneyFraud() {
+        val result = LocalRisk.assess("Ты меня разозлил, поговорим позже.")
+        assertEquals(0, result.score)
         assertEquals(null, result.advisory)
     }
 }

@@ -1,0 +1,80 @@
+{"id":"short_safe_001","risk_level":"safe","scam_type":"none","tactics":[],"input":"Я купил кофе по дороге. С тебя 180 рублей, скинь когда увидимся."}
+{"id":"short_safe_002","risk_level":"safe","scam_type":"none","tactics":[],"input":"Закинь свою часть за интернет, пожалуйста. Срок до воскресенья, не срочно."}
+{"id":"short_safe_003","risk_level":"safe","scam_type":"none","tactics":[],"input":"Ты оставил карту в машине. Я положил её в бардачок."}
+{"id":"short_safe_004","risk_level":"safe","scam_type":"none","tactics":[],"input":"Пап, купи хлеба по пути домой. Если магазина не будет — ничего."}
+{"id":"short_safe_005","risk_level":"safe","scam_type":"none","tactics":[],"input":"Переведи мне 400 рублей за билеты, я взял их на всех."}
+{"id":"short_safe_006","risk_level":"safe","scam_type":"none","tactics":[],"input":"Можешь оплатить парковку? Я переведу тебе вечером."}
+{"id":"short_safe_007","risk_level":"safe","scam_type":"none","tactics":[],"input":"Твоя доля за аренду зала — 900 рублей. Квитанцию скину в общий чат."}
+{"id":"short_safe_008","risk_level":"safe","scam_type":"none","tactics":[],"input":"Оплата прошла. Спасибо! Завтра верну тебе наличные."}
+{"id":"short_safe_009","risk_level":"safe","scam_type":"none","tactics":[],"input":"Банк: списание 620 рублей в магазине. Посмотреть подробности можно в приложении."}
+{"id":"short_safe_010","risk_level":"safe","scam_type":"none","tactics":[],"input":"Курьер оставил заказ у консьержа, забери когда вернёшься."}
+{"id":"short_safe_011","risk_level":"safe","scam_type":"none","tactics":[],"input":"Мам, я уже приехал. Всё хорошо, доеду сам."}
+{"id":"short_safe_012","risk_level":"safe","scam_type":"none","tactics":[],"input":"Перешли фото чека за бензин, бухгалтерия возместит расходы."}
+{"id":"short_safe_013","risk_level":"safe","scam_type":"none","tactics":[],"input":"Зарплата поступила на счёт. Проверить начисление можно в официальном кабинете."}
+{"id":"short_safe_014","risk_level":"safe","scam_type":"none","tactics":[],"input":"Напоминание от школы: собрание родителей завтра в 18:30."}
+{"id":"short_safe_015","risk_level":"safe","scam_type":"none","tactics":[],"input":"Я оплатил лекарства. Не надо ничего переводить, чек пришлю позже."}
+{"id":"short_safe_016","risk_level":"safe","scam_type":"none","tactics":[],"input":"Доехал, спасибо за поездку. Напиши, когда будешь дома."}
+{"id":"short_safe_017","risk_level":"safe","scam_type":"none","tactics":[],"input":"Положи на общий счёт 250 рублей за продукты, остальное уже оплатил я."}
+{"id":"short_safe_018","risk_level":"safe","scam_type":"none","tactics":[],"input":"Памятка: банк не просит продиктовать одноразовый код по телефону."}
+{"id":"short_safe_019","risk_level":"safe","scam_type":"none","tactics":[],"input":"Если хочешь скинуться на подарок, вот смета в таблице. Решай сам."}
+{"id":"short_safe_020","risk_level":"safe","scam_type":"none","tactics":[],"input":"Созвонимся вечером, сейчас занят. Деньги за обед можешь отдать завтра."}
+{"id":"short_check_001","risk_level":"needs_check","scam_type":"payment_request","tactics":["payment request"],"input":"Привет, можешь одолжить 700 рублей до понедельника? Верну, как получу выплату."}
+{"id":"short_check_002","risk_level":"needs_check","scam_type":"payment_request","tactics":["payment request"],"input":"Не хватает 3 000 на ремонт телефона. Если можешь помочь — напиши, если нет, пойму."}
+{"id":"short_check_003","risk_level":"needs_check","scam_type":"payment_request","tactics":["payment request"],"input":"Сможешь оплатить мой заказ, а я переведу тебе при встрече?"}
+{"id":"short_check_004","risk_level":"needs_check","scam_type":"third_party","tactics":["third party"],"input":"Это Лёша, у меня новый профиль. Напиши, пожалуйста, когда будешь свободен."}
+{"id":"short_check_005","risk_level":"needs_check","scam_type":"payment_request","tactics":["payment request"],"input":"Мне нужно 5 000 рублей на обследование. Можешь одолжить на пару недель?"}
+{"id":"short_check_006","risk_level":"needs_check","scam_type":"payment_request","tactics":["payment request"],"input":"Выручишь с оплатой билета? Могу вернуть переводом в конце месяца."}
+{"id":"short_check_007","risk_level":"needs_check","scam_type":"verification_needed","tactics":["verification needed"],"input":"Здравствуйте. По вашей заявке есть обновление. Проверьте его в личном кабинете компании."}
+{"id":"short_check_008","risk_level":"needs_check","scam_type":"third_party","tactics":["third party"],"input":"У меня временно не работает старый аккаунт. Можно я напишу тебе здесь?"}
+{"id":"short_check_009","risk_level":"needs_check","scam_type":"payment_request","tactics":["payment request"],"input":"Можешь занять 1 200 рублей на проезд? Как доберусь, сразу верну."}
+{"id":"short_check_010","risk_level":"needs_check","scam_type":"verification_needed","tactics":["verification needed"],"input":"Сервис просит подтвердить адрес доставки в приложении. Я не уверен, что это за заказ."}
+{"id":"short_check_011","risk_level":"needs_check","scam_type":"payment_request","tactics":["payment request"],"input":"Есть возможность перевести 2 500? Нужно внести предоплату за поездку."}
+{"id":"short_check_012","risk_level":"needs_check","scam_type":"third_party","tactics":["third party"],"input":"Привет! Ты меня помнишь? Потерял старый телефон, напиши, пожалуйста."}
+{"id":"short_check_013","risk_level":"needs_check","scam_type":"verification_needed","tactics":["verification needed"],"input":"Кабинет сообщает о попытке входа. Если это были не вы, откройте официальное приложение."}
+{"id":"short_check_014","risk_level":"needs_check","scam_type":"payment_request","tactics":["payment request"],"input":"Нужно оплатить коммуналку до конца недели. Можешь одолжить 2 000 рублей?"}
+{"id":"short_check_015","risk_level":"needs_check","scam_type":"third_party","tactics":["third party"],"input":"Я сейчас с рабочего номера. Позвони мне по тому контакту, который у тебя уже сохранён."}
+{"id":"short_check_016","risk_level":"needs_check","scam_type":"verification_needed","tactics":["verification needed"],"input":"Вам доступен возврат за покупку. Уточните условия самостоятельно у продавца."}
+{"id":"short_check_017","risk_level":"needs_check","scam_type":"payment_request","tactics":["payment request"],"input":"Можешь отправить 900 рублей за лекарства? Чек и упаковку покажу, когда увидимся."}
+{"id":"short_check_018","risk_level":"needs_check","scam_type":"third_party","tactics":["third party"],"input":"Знакомый сказал, что ты разбираешься в крипте. Можно задать вопрос?"}
+{"id":"short_check_019","risk_level":"needs_check","scam_type":"verification_needed","tactics":["verification needed"],"input":"Появилась новая операция по карте. Проверьте список покупок непосредственно в банковском приложении."}
+{"id":"short_check_020","risk_level":"needs_check","scam_type":"payment_request","tactics":["payment request"],"input":"Мне не хватает 4 000 рублей на оплату аренды. Если одолжишь, верну после аванса."}
+{"id":"short_suspicious_001","risk_level":"suspicious","scam_type":"family_impersonation","tactics":["family_impersonation","urgency","payment request"],"input":"Мам, это я, аккаунт другой. Срочно переведи 6 000, потом всё расскажу."}
+{"id":"short_suspicious_002","risk_level":"suspicious","scam_type":"marketplace_scam","tactics":["marketplace scam","credential request"],"input":"Я покупатель. Чтобы получить оплату, введи данные карты на странице оформления."}
+{"id":"short_suspicious_003","risk_level":"suspicious","scam_type":"delivery_scam","tactics":["phishing","urgency"],"input":"Доставка приостановлена из-за сбора. Оплатите 49 рублей сегодня по ссылке."}
+{"id":"short_suspicious_004","risk_level":"suspicious","scam_type":"job_scam","tactics":["fake job","payment request"],"input":"Приём на удалённую работу открыт. Для доступа к заданиям внеси плату за стартовый пакет."}
+{"id":"short_suspicious_005","risk_level":"suspicious","scam_type":"investment_scam","tactics":["investment bait","urgency"],"input":"Доход по этой схеме гарантирован. Внеси сумму до вечера, места ограничены."}
+{"id":"short_suspicious_006","risk_level":"suspicious","scam_type":"bank_impersonation","tactics":["fake authority","urgency"],"input":"Служба безопасности: замечена подозрительная активность. Срочно перезвоните по номеру из сообщения."}
+{"id":"short_suspicious_007","risk_level":"suspicious","scam_type":"family_impersonation","tactics":["impersonation","secrecy","payment request"],"input":"Это новый номер сына. Он просит перевести деньги, но говорит пока не звонить родным."}
+{"id":"short_suspicious_008","risk_level":"suspicious","scam_type":"prize_scam","tactics":["too good to be true","payment request"],"input":"Вы выиграли сертификат. Для получения нужно оплатить обработку заявки."}
+{"id":"short_suspicious_009","risk_level":"suspicious","scam_type":"account_alert","tactics":["phishing","urgency"],"input":"Доступ к профилю скоро закончится. Восстановите вход сегодня, перейдя по этой ссылке."}
+{"id":"short_suspicious_010","risk_level":"suspicious","scam_type":"rental_scam","tactics":["payment request","urgency"],"input":"Квартиру уже хотят забрать. Переведи задаток сейчас, договор отправлю после оплаты."}
+{"id":"short_suspicious_011","risk_level":"suspicious","scam_type":"romance_scam","tactics":["secrecy","payment request"],"input":"Я тебе доверяю. Отправь деньги на билет, только никому об этом не рассказывай."}
+{"id":"short_suspicious_012","risk_level":"suspicious","scam_type":"marketplace_scam","tactics":["third party","payment request"],"input":"Курьер заберёт товар сегодня. Сначала оплати страховку, потом деньги вернутся."}
+{"id":"short_suspicious_013","risk_level":"suspicious","scam_type":"bank_impersonation","tactics":["fake authority","verification needed"],"input":"Для проверки перевода нужно подтвердить операцию через форму, которую я отправил."}
+{"id":"short_suspicious_014","risk_level":"suspicious","scam_type":"investment_scam","tactics":["investment bait","too good to be true"],"input":"Вложи 10 тысяч — система автоматически вернёт 30 тысяч через неделю."}
+{"id":"short_suspicious_015","risk_level":"suspicious","scam_type":"job_scam","tactics":["fake job","payment request"],"input":"Работа простая: лайки и отзывы. Для вывода первой зарплаты пополни внутренний баланс."}
+{"id":"short_suspicious_016","risk_level":"suspicious","scam_type":"phishing","tactics":["phishing link","urgency"],"input":"Найдено нарушение договора. Посмотри уведомление по ссылке, иначе заявку закроют."}
+{"id":"short_suspicious_017","risk_level":"suspicious","scam_type":"family_impersonation","tactics":["urgency","payment request"],"input":"Нужны деньги на лекарства, пожалуйста, переведи в ближайший час. Объяснить сейчас не могу."}
+{"id":"short_suspicious_018","risk_level":"suspicious","scam_type":"fake_support","tactics":["fake authority","remote access request"],"input":"Техническая помощь доступна только сейчас. Скачай приложение для диагностики телефона."}
+{"id":"short_suspicious_019","risk_level":"suspicious","scam_type":"phishing","tactics":["phishing link","credential request"],"input":"Посмотри документ по этой ссылке и войди через свой аккаунт, чтобы открыть файл."}
+{"id":"short_suspicious_020","risk_level":"suspicious","scam_type":"payment_request","tactics":["urgency","payment request"],"input":"Счёт нужно закрыть до 17:00. Переведи по новым реквизитам, старые больше не работают."}
+{"id":"short_dangerous_001","risk_level":"dangerous","scam_type":"credential_theft","tactics":["credential theft","fake authority"],"input":"Я из банка. Продиктуй код подтверждения, который только что пришёл на телефон."}
+{"id":"short_dangerous_002","risk_level":"dangerous","scam_type":"credential_theft","tactics":["credential theft","urgency"],"input":"Чтобы отменить списание, назови PIN карты и три цифры с оборота."}
+{"id":"short_dangerous_003","risk_level":"dangerous","scam_type":"bank_impersonation","tactics":["fake authority","payment pressure"],"input":"Переведите остаток на резервный счёт, который я сейчас продиктую. Иначе деньги заморозят."}
+{"id":"short_dangerous_004","risk_level":"dangerous","scam_type":"remote_access","tactics":["remote access request","fake authority"],"input":"Установи RustDesk, дай мне доступ к экрану и не закрывай приложение банка."}
+{"id":"short_dangerous_005","risk_level":"dangerous","scam_type":"phishing","tactics":["phishing link","credential theft"],"input":"Перейди на эту страницу и введи логин, пароль и одноразовый код от банка."}
+{"id":"short_dangerous_006","risk_level":"dangerous","scam_type":"extortion","tactics":["threat or fear","secrecy","payment request"],"input":"Отправь 15 тысяч на этот кошелёк. Если не сделаешь, выложу твои фотографии и адрес."}
+{"id":"short_dangerous_007","risk_level":"dangerous","scam_type":"credential_theft","tactics":["credential theft","secrecy"],"input":"Не говори родителям и не клади трубку. Просто отправь мне код, который придёт."}
+{"id":"short_dangerous_008","risk_level":"dangerous","scam_type":"crypto_scam","tactics":["credential theft","too good to be true"],"input":"Для разблокировки кошелька отправь seed-фразу из 12 слов в этот чат."}
+{"id":"short_dangerous_009","risk_level":"dangerous","scam_type":"bank_impersonation","tactics":["fake authority","credential theft"],"input":"У нас подозрение на взлом. Напиши номер карты, срок действия и код из сообщения."}
+{"id":"short_dangerous_010","risk_level":"dangerous","scam_type":"extortion","tactics":["threat or fear","payment request"],"input":"Плати прямо сейчас, иначе приеду к тебе домой и сломаю дверь."}
+{"id":"short_dangerous_011","risk_level":"dangerous","scam_type":"remote_access","tactics":["remote access request","credential theft"],"input":"Покажи экран, открой настройки специальных возможностей и включи удалённое управление."}
+{"id":"short_dangerous_012","risk_level":"dangerous","scam_type":"phishing","tactics":["phishing link","credential theft"],"input":"Подтверди личность на сайте, введи пароль и код из SMS, чтобы получить возврат."}
+{"id":"short_dangerous_013","risk_level":"dangerous","scam_type":"bank_impersonation","tactics":["fake authority","payment pressure"],"input":"Это полиция. Переведи деньги на проверочный счёт, чтобы доказать, что они твои."}
+{"id":"short_dangerous_014","risk_level":"dangerous","scam_type":"credential_theft","tactics":["credential theft","urgency"],"input":"Скинь код входа за минуту, иначе мы отключим твой аккаунт."}
+{"id":"short_dangerous_015","risk_level":"dangerous","scam_type":"extortion","tactics":["threat or fear","payment request"],"input":"Переведи сумму по указанному номеру, или я отправлю переписку твоим коллегам."}
+{"id":"short_dangerous_016","risk_level":"dangerous","scam_type":"remote_access","tactics":["remote access request","urgency"],"input":"Срочно скачай TeamViewer и продиктуй мне код подключения, иначе счёт заблокируют."}
+{"id":"short_dangerous_017","risk_level":"dangerous","scam_type":"credential_theft","tactics":["credential theft","payment pressure"],"input":"Для возврата сообщи пароль от интернет-банка и полный номер карты."}
+{"id":"short_dangerous_018","risk_level":"dangerous","scam_type":"account_takeover","tactics":["credential theft","secrecy"],"input":"Не отвечай никому кроме меня. Перешли ссылку подтверждения входа, которая пришла на почту."}
+{"id":"short_dangerous_019","risk_level":"dangerous","scam_type":"bank_impersonation","tactics":["fake authority","payment pressure"],"input":"Сотрудник поддержки просит перевести средства на новый защищённый счёт."}
+{"id":"short_dangerous_020","risk_level":"dangerous","scam_type":"extortion","tactics":["threat or fear","payment request"],"input":"Если не отправишь деньги до ночи, опубликую твой номер телефона и место работы."}

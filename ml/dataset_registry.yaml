@@ -30,3 +30,14 @@ datasets:
     data_kind: synthetic held-out boundary/evaluation set
     allowed_use: evaluation only; never used for gradient updates
     redistribution: do not redistribute raw corpus
+  - id: contextshield-curated-short-ru-v1
+    source: project-authored examples in ml/data/curated_ru_train.jsonl
+    license: project-owned synthetic text
+    languages_used: [ru]
+    rows_used: 80
+    data_kind: synthetic short conversational messages balanced across safe, needs_check, suspicious, and dangerous
+    allowed_use: local supervised training
+    redistribution: included in repository; contains no user messages or personal data
+    limitations:
+      - Authored examples are not observed real-world conversations.
+      - Must not be used to claim field detection quality.

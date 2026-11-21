@@ -89,14 +89,22 @@ object OnDeviceModel {
         require(metadata.optInt("max_length", MAX_LENGTH) == MAX_LENGTH) { "Изменилась длина входа модели" }
 
         val modelFile = File(context.noBackupFilesDir, MODEL_FILE)
-        if (!modelFile.isFile) {
+        val expectedDigest = metadata.getString("model_sha256")
+        if (!modelFile.isFile || !sha256(modelFile).equals(expectedDigest, ignoreCase = true)) {
+            // App updates preserve noBackupFilesDir. Stage and verify the packaged ONNX first,
+            // then replace the cached model so an older asset cannot stay active after upgrade.
+            val stagedFile = File(context.noBackupFilesDir, "$MODEL_FILE.new")
+            stagedFile.delete()
             context.assets.open(ASSET_MODEL).use { source ->
-                modelFile.outputStream().use { output -> source.copyTo(output) }
+                stagedFile.outputStream().use { output -> source.copyTo(output) }
             }
+            require(sha256(stagedFile).equals(expectedDigest, ignoreCase = true)) {
+                "SHA-256 встроенной модели не совпал"
+            }
+            if (modelFile.exists()) require(modelFile.delete()) { "Не удалось заменить устаревшую модель" }
+            require(stagedFile.renameTo(modelFile)) { "Не удалось установить новую модель" }
         }
-        val digest = MessageDigest.getInstance("SHA-256").digest(modelFile.readBytes())
-            .joinToString("") { "%02x".format(it) }
-        require(digest.equals(metadata.getString("model_sha256"), ignoreCase = true)) {
+        require(sha256(modelFile).equals(expectedDigest, ignoreCase = true)) {
             "SHA-256 модели не совпал"
         }
 
@@ -110,6 +118,19 @@ object OnDeviceModel {
         session = env.createSession(modelFile.absolutePath, options)
         loadFailure = null
         options.close()
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     private data class EncodedInput(val ids: LongArray, val mask: LongArray, val types: LongArray)

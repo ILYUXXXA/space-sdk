@@ -33,6 +33,7 @@ data class ContextRisk(val score: Int, val eventCount: Int, val factors: List<St
     val blocked: Boolean get() = score >= THRESHOLD
 
     companion object {
+        const val ADVISORY_THRESHOLD = 30
         const val THRESHOLD = 60
     }
 }

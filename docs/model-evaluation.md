@@ -3,38 +3,54 @@
 **Generated:** 2026-11-21
 **Model:** `cointegrated/rubert-tiny2`, revision `e8ed3b0c8bbf4fb6984c3de043bf7d2f4e5969ae`, MIT
 **Runtime:** ONNX Runtime Android `1.32.0`, dynamic INT8 quantization
-**ONNX asset:** `android/app/src/main/assets/model/contextshield-risk-int8.onnx` (~29.3 MB; SHA-256 `bbc117da6ec6c212b4e233842da3141da0a4d0b1c57cca02760d6f8ef8c6bcbe`)
+**Model asset:** `android/app/src/main/assets/model/contextshield-risk-int8.onnx`, 29,268,978 bytes
+**SHA-256:** `93defa709e362986c9b341505d07173317d19658c2a39d93ddf0a7ef25162f0e`
 
-## Training data and labels
+## What changed
 
-The training source is revision `d4141645c5d9c439143604e5e64f7d3651e82942` of [`dokster/adaption-scam-dataset-ru-en-v1`](https://huggingface.co/datasets/dokster/adaption-scam-dataset-ru-en-v1), Apache-2.0. This is synthetic/template-generated data, not a collection of actual user messages. The pipeline uses only 1,124 Russian rows and divides them by scenario ID into train/validation/test sets. Raw data and the base checkpoint remain local and are excluded from Git; the deployable fine-tuned ONNX model is included.
+The original model was trained on 1,124 synthetic Russian rows and was biased toward long, formal scam examples. The new training run adds 80 project-authored short conversational messages, balanced across `safe`, `needs_check`, `suspicious`, and `dangerous`. After grouped train/validation/test splitting, one deterministic surface variation is generated for each training row only. Variations cover informal wording, `ё/е`, punctuation/case/spacing, and sparse Latin look-alikes. No evaluation row is augmented or used for gradient updates.
 
-The classifier has four message-level risk classes: `safe`, `needs_check`, `suspicious`, `dangerous`. A second head predicts 13 broadly grouped tactics drawn from dataset annotations: urgency, impersonation, phishing link, payment request, credential theft, verification needed, investment/prize, remote access, secrecy, job scam, marketplace scam, third party, and too-good-to-be-true. Explanations shown to the user still come from local evidence and policy, not generated prose.
+This is a broader data-coverage change, not a claim that one phrase or one user message was “fixed.” The model remains a compact multi-task encoder, not a generative LLM. It predicts four risk classes and thirteen tactics. Notification text is analyzed locally on Android; the ordinary inference path makes no network call.
 
-## Observed synthetic metrics
+## Training data
 
-| Evaluation set | Rows | Risk macro-F1 | Dangerous precision | Dangerous recall | Tactic macro-F1 |
-|---|---:|---:|---:|---:|---:|
-| Scenario-grouped held-out subset of the same synthetic corpus | 180 | 0.911 | 0.983 | 0.983 | 0.689 |
-| Separate Russian synthetic boundary evaluation split | 316 | 0.862 | 0.970 | 0.828 | 0.460 |
+- `dokster/adaption-scam-dataset-ru-en-v1`, pinned revision `d4141645c5d9c439143604e5e64f7d3651e82942`, Apache-2.0: 1,124 Russian synthetic/template-generated rows.
+- `ml/data/curated_ru_train.jsonl`: 80 original project-authored synthetic short messages. This file contains no user messages.
+- Total before training-only surface augmentation: 1,204 rows. Scenario groups are kept within one split.
+- A separate 316-row Russian synthetic boundary set from the dataset source is evaluation-only; it is not used for gradient updates.
+- `ml/data/challenge_suite_ru.jsonl`: 32 additional hand-authored short-message examples, 8 per class. It is also evaluation-only and is not part of training.
 
-These figures are reproducible pipeline evidence only. The boundary set is also synthetic and has the same broad authoring/data lineage; it is not an independent real-world benchmark. The recall change between the two sets is a concrete warning against interpreting one test score as expected field performance. Tactic metrics are especially limited by weak/noisy annotation mapping and should be read as experimental graph features.
+No Telegram-derived corpus is used. The available FraudLens card describes public Telegram-channel sourcing; we have not trained on it because the source terms need a separate rights review. A surfaced multilingual SpamShield dataset repository currently has no data files despite its dataset-card claims, so it is not a usable source. The license/quality/source review is recorded in `ml/dataset_registry.yaml`.
 
-## Decision controls and limitations
+## Results
 
-- The model is a local triage signal, not evidence that a person is a scammer.
-- A model prediction by itself cannot pause the demo transfer. The local rule/context policy needs independent evidence.
-- A `dangerous` class confidence of at least 65% or `suspicious` at least 80%, paired with a locally recognized money request, can show a **non-blocking verification advisory**. These are classifier-output thresholds for a step-up prompt, not fraud probabilities. A small request with only a moderate `suspicious` output is not interrupted by that advisory rule.
-- A money request explicitly paired with doxxing/swatting threats receives a specific extortion warning, while a single event stays below the demo pause threshold. Repeated or additional independent evidence can still increase the episode score and trigger the demo hold.
-- Russian slang/elliptical wording remains a known coverage limit. The local rules cover the tested forms `зелёных`, `картейку`, `докс`, and `сват`; this does not imply broad coverage of slang, misspellings, voice transcription errors, or coded language.
-- `safe` is not proof of safety; hidden/absent notification text means insufficient context.
-- Display name/nickname does not identify a sender or inherit trust. Notification sender continuity remains `UNKNOWN` without an official stable platform ID.
-- No latency or memory claim is made until measured on the target Xiaomi phone. The model file is ~29.3 MB; the final universal APK may be larger because it also packages ONNX Runtime native libraries.
-- The demo button is not connected to a bank and does not transfer or block real money.
-- Do not use this model for real transaction decisions until validated on consented, rights-cleared traffic and independently reviewed for false positives, false negatives, calibration, and Android device coverage.
+| Evaluation set | Rows | Accuracy | Risk macro-F1 | Dangerous precision | Dangerous recall | Tactic macro-F1 |
+|---|---:|---:|---:|---:|---:|---:|
+| Grouped held-out split of combined training sources | 193 | 0.927 | 0.881 | 0.966 | 0.966 | 0.796 |
+| Separate Russian synthetic boundary set | 316 | 0.880 | 0.869 | 0.970 | 0.834 | 0.632 |
+| Project-authored short challenge suite | 32 | 0.500 | 0.476 | — | — | — |
 
-## Targeted regressions added
+On the challenge suite, the prior bundled model scored 0.344 accuracy and 0.296 macro-F1; the candidate scores 0.500 and 0.476. At a diagnostic combined `suspicious + dangerous` score threshold of 0.70, challenge-set precision/recall changed from 0.778/0.875 to 0.833/0.938; one of eight safe examples is still over the threshold in both models. This is a small designed test, not an estimate of live false-alert rates.
 
-The Android unit suite includes the screenshot-style examples: a benign 10 ₽ request with a moderate `suspicious` output (50.6%) gets no advisory; the 200 ₽ request gets a verification advisory at `dangerous` 68% (the user's notification screenshot displayed 83%); and the slang request `Фастиком денежку 50 зелёных на картейку иначе докс и сват` gets an extortion warning without a single-event hard block. The body-only outputs were also checked against the packaged ONNX asset. These are policy examples, not a claim that the model will always produce the same result on all paraphrases.
+The external boundary-set accuracy rose from 0.873 to 0.880 and macro-F1 from 0.862 to 0.869. Dangerous-class recall changed from 0.828 to 0.834. These are modest changes on synthetic data from the same broad authoring lineage. They do not establish real-world performance. Short-form challenge scores remain low, which is why the app must continue to treat output as triage evidence and why more independently labeled, rights-cleared Russian messages are needed.
 
-To reproduce, follow [`ml/README.md`](../ml/README.md). The exact downloaded source revisions and SHA-256 values are recorded in `ml/dataset_registry.yaml` and `ml/artifacts/metrics.json` (the latter is local and git-ignored).
+## Product decision rules
+
+- Model confidence is not a probability that a person is a fraudster.
+- A model class prediction alone never pauses the demo transfer. The local rule/context policy requires explicit signals for a pause.
+- Strong financial pressure can trigger a non-blocking recommendation to verify the request independently.
+- Explicit money demand plus an ultimatum and a physical-threat cue can pause the **demo** transfer. This is a safety rule for a direct threat, not a model claim.
+- A money request tied to threats to disclose personal data gets a focused extortion warning. A single event does not establish the sender's identity or prove a crime.
+- `safe` means no signal was recognized; it is not proof of safety. Hidden or absent notification text means insufficient evidence.
+- Display names and nicknames do not identify a sender and never inherit trust. Continuity remains `UNKNOWN` without a stable official account identifier.
+- The demo button is not connected to a bank and cannot move or block real funds.
+
+## Limits and next data needed
+
+Both the public training corpus and the added project examples are synthetic. The separate challenge suite is small and authored by the project; none of these metrics can be presented as accuracy on users' conversations. The data lacks coverage of realistic benign requests, current Russian-speaking messenger patterns, voice-to-text errors, code-switching, regional slang, and new scam scripts. The model still has noticeable short-message class errors.
+
+The next defensible quality step is a consented, legally sourced, independently labeled Russian corpus, with hard negatives and sender/context metadata removed or pseudonymized. A bank or security reviewer should define the labels and costs of false alarms/misses. Keep a frozen test set from that corpus and publish class-wise precision/recall, calibration, and false alerts per thousand benign messages before considering any real transaction gating.
+
+## Reproduction
+
+Follow [`ml/README.md`](../ml/README.md). It includes the pinned source revisions and commands to regenerate the INT8 ONNX model and run both evaluation suites. The evaluation suite intentionally contains no screenshots or message copied from the user.

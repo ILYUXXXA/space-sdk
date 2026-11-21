@@ -122,6 +122,26 @@ def read_train_rows() -> list[dict]:
     return records
 
 
+def read_curated_rows() -> list[dict]:
+    """Read the small, project-authored short-message supplement."""
+    path = ROOT / "data" / "curated_ru_train.jsonl"
+    if not path.is_file():
+        return []
+    records: list[dict] = []
+    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        row = json.loads(line)
+        risk = row.get("risk_level")
+        message = str(row.get("input", "")).strip()
+        if risk not in LABEL_TO_ID or not message:
+            raise ValueError(f"Invalid curated training row at line {line_no}")
+        scenario_id = str(row.get("id", f"curated-{line_no}"))
+        records.append({"text": message[:1000], "label": LABEL_TO_ID[risk],
+                        "tactics": map_tactics({"tactics": row.get("tactics", []),
+                                                "scam_type": row.get("scam_type", "")}),
+                        "group": f"curated:{scenario_id}"})
+    return records
+
+
 def group_split(records: list[dict]) -> tuple[list[int], list[int], list[int]]:
     y = np.asarray([r["label"] for r in records])
     groups = np.asarray([r["group"] for r in records])
@@ -143,6 +163,53 @@ def encode(tokenizer, texts: list[str]) -> tuple[torch.Tensor, torch.Tensor, tor
                       return_tensors="pt")
     token_type_ids = batch.get("token_type_ids", torch.zeros_like(batch["input_ids"]))
     return batch["input_ids"], batch["attention_mask"], token_type_ids
+
+
+def augment_ru_surface(text: str, seed: int) -> str:
+    """Create one label-preserving Russian notification-style variant.
+
+    Augmentation runs only after group splitting and only on training rows. It
+    varies common informal wording and orthography without changing the message
+    scenario, so near-duplicates cannot leak into validation or test.
+    """
+    rng = random.Random(seed)
+    result = text
+    replacements = [
+        (r"\bпереведи\b", ["перекинь", "скинь", "закинь"]),
+        (r"\bперевести\b", ["перекинуть", "скинуть", "закинуть"]),
+        (r"\bденьги\b", ["бабки", "лавэ", "деньги"]),
+        (r"\bденег\b", ["бабла", "денег", "лавэ"]),
+        (r"\bсрочно\b", ["щас", "срочно", "прямо сейчас"]),
+        (r"\bсейчас\b", ["щас", "сейчас"]),
+        (r"\bкарту\b", ["карту", "картейку"]),
+        (r"\bкод из СМС\b", ["кодик из смс", "код из SMS", "код из СМС"]),
+    ]
+    for pattern, choices in replacements:
+        if re.search(pattern, result, flags=re.IGNORECASE) and rng.random() < 0.55:
+            replacement = rng.choice(choices)
+            result = re.sub(pattern, replacement, result, count=1, flags=re.IGNORECASE)
+
+    # Russian messages often vary ё/е, capitalization, whitespace and punctuation.
+    if rng.random() < 0.55:
+        result = result.replace("ё", "е").replace("Ё", "Е")
+    elif rng.random() < 0.20:
+        result = result.replace("е", "ё", 1)
+    if rng.random() < 0.25:
+        result = re.sub(r"[,.!?]+", lambda m: rng.choice([m.group(0), "", "…"]), result)
+    if rng.random() < 0.20:
+        result = re.sub(r"\s+", "  ", result, count=1)
+    if rng.random() < 0.12:
+        result = result.lower()
+
+    # A few Latin look-alikes model real obfuscation in Russian messages.
+    if rng.random() < 0.18:
+        pairs = {"а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x"}
+        chars = list(result)
+        positions = [i for i, char in enumerate(chars) if char in pairs]
+        for position in rng.sample(positions, min(len(positions), rng.randint(1, 2))):
+            chars[position] = pairs[chars[position]]
+        result = "".join(chars)
+    return result
 
 
 def make_loader(tokenizer, records: list[dict], indices: list[int], batch_size: int, shuffle: bool):
@@ -276,12 +343,14 @@ def main() -> int:
     set_seed(SEED)
     torch.set_num_threads(min(4, os.cpu_count() or 1))
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
-    records = read_train_rows()
+    corpus_records = read_train_rows()
+    curated_records = read_curated_rows()
+    records = corpus_records + curated_records
     train_idx, val_idx, test_idx = group_split(records)
     y = [r["label"] for r in records]
     split_counts = {name: dict(Counter(LABELS[y[i]] for i in idx))
                     for name, idx in (("train", train_idx), ("validation", val_idx), ("test", test_idx))}
-    print(f"Dataset rows: {len(records)} Russian synthetic messages; grouped splits: {split_counts}", flush=True)
+    print(f"Dataset rows: {len(records)} Russian synthetic messages ({len(corpus_records)} licensed corpus + {len(curated_records)} project-authored short-form); grouped splits: {split_counts}", flush=True)
     baseline = tfidf_baseline(records, train_idx, test_idx)
     print(json.dumps({"tfidf_baseline_test_macro_f1": baseline["macro_f1"],
                       "tfidf_baseline_dangerous_recall": baseline["dangerous_precision_recall_f1"]["recall"]}), flush=True)
@@ -290,7 +359,14 @@ def main() -> int:
     model = ContextClassifier()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-    train_loader = make_loader(tokenizer, records, train_idx, batch_size=8, shuffle=True)
+    training_records = [records[i] for i in train_idx]
+    # Keep every generated variant inside the training side of the group split.
+    training_records += [
+        {**record, "text": augment_ru_surface(record["text"], SEED + i)}
+        for i, record in enumerate(training_records)
+    ]
+    train_loader = make_loader(tokenizer, training_records, list(range(len(training_records))),
+                               batch_size=8, shuffle=True)
     val_loader = make_loader(tokenizer, records, val_idx, batch_size=16, shuffle=False)
     test_loader = make_loader(tokenizer, records, test_idx, batch_size=16, shuffle=False)
     counts = np.bincount(np.asarray(y)[train_idx], minlength=len(LABELS)).astype(np.float32)
@@ -398,11 +474,19 @@ def main() -> int:
         "training_data_revision": DATASET_REVISION,
         "training_data_license": "Apache-2.0",
         "training_data_sha256": dataset_hash,
+        "project_curated_data": "ml/data/curated_ru_train.jsonl; project-authored synthetic short conversational messages",
+        "project_curated_data_sha256": hashlib.sha256((ROOT / "data" / "curated_ru_train.jsonl").read_bytes()).hexdigest() if curated_records else None,
+        "project_curated_rows": len(curated_records),
         "rows_total_ru": len(records),
         "split_by_scenario_id": split_counts,
         "seed": SEED,
         "max_length": MAX_LENGTH,
         "best_epoch": best_epoch,
+        "training_augmentation": {
+            "method": "one deterministic label-preserving Russian surface variant per training row",
+            "applied_after_group_split": True,
+            "transforms": ["informal synonyms", "ё/е variation", "case/punctuation/spacing", "sparse Latin look-alikes"],
+        },
         "training_history": history,
         "tfidf_baseline_test": baseline,
         "heldout_synthetic_test": {"risk": classification_metrics(test_true, test_pred),
@@ -425,12 +509,14 @@ def main() -> int:
     shutil.copy2(int8_path, ANDROID_ASSETS / "contextshield-risk-int8.onnx")
     shutil.copy2(BASE / "vocab.txt", ANDROID_ASSETS / "vocab.txt")
     (ANDROID_ASSETS / "model_metadata.json").write_text(
-        json.dumps({"version": "ru-risk-multitask-1", "labels": LABELS, "tactics": TACTICS, "max_length": MAX_LENGTH,
+        json.dumps({"version": "ru-risk-multitask-2", "labels": LABELS, "tactics": TACTICS, "max_length": MAX_LENGTH,
                     "model_id": "cointegrated/rubert-tiny2", "model_revision": MODEL_REVISION,
                     "dataset_id": "dokster/adaption-scam-dataset-ru-en-v1", "dataset_revision": DATASET_REVISION,
+                    "curated_data": "project-authored-short-ru-v1", "curated_data_rows": len(curated_records),
+                    "curated_data_sha256": hashlib.sha256((ROOT / "data" / "curated_ru_train.jsonl").read_bytes()).hexdigest() if curated_records else None,
                     "model_sha256": hashlib.sha256(int8_path.read_bytes()).hexdigest()}, indent=2) + "\n",
         encoding="utf-8")
-    print(json.dumps({"complete": True, "best_epoch": best_epoch, "onnx_int8_bytes": model_size_bytes,
+    print(json.dumps({"complete": True, "best_epoch": best_epoch, "training_rows_with_augmentation": len(training_records), "onnx_int8_bytes": model_size_bytes,
                       "android_assets": str(ANDROID_ASSETS), "heldout_risk_macro_f1": metrics["heldout_int8_test"]["macro_f1"],
                       "external_risk_macro_f1": external.get("macro_f1"),
                       "external_tactic_macro_f1": external.get("tactic_metrics", {}).get("macro_f1")}, ensure_ascii=False), flush=True)

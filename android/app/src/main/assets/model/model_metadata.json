@@ -1,5 +1,5 @@
 {
-  "version": "ru-risk-multitask-1",
+  "version": "ru-risk-multitask-2",
   "labels": [
     "safe",
     "needs_check",
@@ -26,5 +26,8 @@
   "model_revision": "e8ed3b0c8bbf4fb6984c3de043bf7d2f4e5969ae",
   "dataset_id": "dokster/adaption-scam-dataset-ru-en-v1",
   "dataset_revision": "d4141645c5d9c439143604e5e64f7d3651e82942",
-  "model_sha256": "bbc117da6ec6c212b4e233842da3141da0a4d0b1c57cca02760d6f8ef8c6bcbe"
+  "curated_data": "project-authored-short-ru-v1",
+  "curated_data_rows": 80,
+  "curated_data_sha256": "94303a218469b10c89a26b7f2cbf2f372143bb41ea072ae06f733946b7b18f56",
+  "model_sha256": "93defa709e362986c9b341505d07173317d19658c2a39d93ddf0a7ef25162f0e"
 }

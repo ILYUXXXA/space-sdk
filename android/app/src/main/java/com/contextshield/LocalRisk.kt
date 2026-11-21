@@ -16,14 +16,13 @@ data class RiskSignal(
 /** Explainable local policy. The ML classifier can add bounded evidence but never blocks alone. */
 object LocalRisk {
     private val moneyAction = Regex(
-        "(?iu)(?<!\\p{L})(?:перевед|скин|пришл|отправ|закин|одолж|дай|займ|оплат|пополн|переброс|кин|фастик)[\\p{L}]*|нужн[аоы]?\\s+(?:деньг|сумм|тысяч)|помоги\\s+(?:деньгами|суммой)"
+        "(?iu)(?<!\\p{L})(?:перевед|скин|пришл|отправ|закин|одолж|дай|займ|оплат|пополн|переброс|перекин|кин|кид|фастик)[\\p{L}]*|нужн[аоы]?\\s+(?:деньг|сумм|тысяч)|помоги\\s+(?:деньгами|суммой)"
     )
-    private val moneyAmount = Regex("(?iu)(?:\\d[\\d\\s.,]*\\s?(?:₽|руб(?:лей|ля|ль)?|р\\.?|доллар[\\p{L}]*|зел[её]н[\\p{L}]*|usd|eur|€|\\$)|(?:тысяч[уае]?|сотн[яюи]?|пара тысяч))")
-    private val moneyMention = Regex("(?iu)(?:деньг[\\p{L}]*|ден[её]жк[\\p{L}]*|денюжк[\\p{L}]*|бабл[\\p{L}]*|бабк[\\p{L}]*|бабос[\\p{L}]*|зел[её]н[\\p{L}]*|руб[\\p{L}]*|доллар[\\p{L}]*|usd|eur|евр[\\p{L}]*|₽|€|\\$)")
+    private val moneyAmount = Regex("(?iu)(?:\\d[\\d\\s.,]*\\s?(?:к(?!\\p{L})|тыс[\\p{L}]*|₽|руб[\\p{L}]*|р\\.?|доллар[\\p{L}]*|зел[её]н[\\p{L}]*|usd|eur|€|\\$)|(?:тысяч[уае]?|сотн[яюи]?|пара тысяч))")
+    private val moneyMention = Regex("(?iu)(?:деньг[\\p{L}]*|ден[её]жк[\\p{L}]*|денюжк[\\p{L}]*|бабл[\\p{L}]*|бабк[\\p{L}]*|бабос[\\p{L}]*|лав[эеё]?(?:х[\\p{L}]*)?|кэш[\\p{L}]*|кеш[\\p{L}]*|косар[\\p{L}]*|зел[её]н[\\p{L}]*|руб[\\p{L}]*|доллар[\\p{L}]*|usd|eur|евр[\\p{L}]*|₽|€|\\$)")
     private val paymentDestination = Regex("(?iu)(?:на\\s+(?:карт[\\p{L}]*|сч[её]т[\\p{L}]*|номер|реквизит[\\p{L}]*|кошел[её]к[\\p{L}]*)|по\\s+(?:номер|реквизит[\\p{L}]*))")
     private val urgency = Regex(
-        "срочн|немедленно|прямо сейчас|сейчас же|как можно скорее|времени нет|быстрее|последний шанс|пока не поздно|до конца дня|сегодня до",
-        RegexOption.IGNORE_CASE
+        "(?iu)срочн|немедленно|прямо сейчас|сейчас же|сейчас.{0,24}(?:кид|перевед|скин|отправ|закин)|как можно скорее|времени нет|быстрее|последний шанс|пока не поздно|до конца дня|сегодня до|до\\s+(?:вечера|сегодня|завтра|\\d{1,2}:\\d{2})"
     )
     private val emergencyPretext = Regex(
         "операци|лечени|больниц|лекарств|авари|попал.{0,20}бед|задержал.{0,20}полици|угрожа|спасти|срочн.{0,25}помощ|реб[её]нок.{0,25}(?:больниц|авари)",
@@ -36,6 +35,13 @@ object LocalRisk {
     private val extortionThreat = Regex(
         "(?iu)(?:\\bдокс(?:инг)?\\b|\\bдоксн[уи]\\b|\\bсват(?:инг)?\\b|\\bсватн[уи]\\b|иначе.{0,35}(?:докс|сват)|вылож[уи].{0,30}(?:адрес|номер|фото|переписк|данн)|опубликую.{0,30}(?:адрес|номер|фото|данн)|разглаш[уи].{0,30}(?:данн|переписк))"
     )
+    private val coerciveUltimatum = Regex(
+        "(?isu)(?:\\b(?:или|либо)\\b.{0,160}\\b(?:будешь|получишь|окажешься|останешься|иначе)\\b|\\bа\\s+то\\b|\\bиначе\\b|\\bесли\\s+не\\b|\\bне\\s+то\\b)"
+    )
+    private val physicalThreatCue = Regex(
+        "(?isu)(?:убью|убива|пристрел|застрел|приконч|покалеч|побью|изобью|сломаю.{0,16}ног|положу.{0,24}(?:в\\s+могил|под\\s+земл)|пойд[её]шь.{0,24}(?:на\\s+тот\\s+свет|в\\s+могил)|окажешься.{0,40}(?:под\\s+земл|в\\s+могил)|отправлю.{0,24}(?:к\\s+праотцам|на\\s+тот\\s+свет))"
+    )
+    private val hostileInsult = Regex("(?iu)(?:у[её]бан[\\p{L}]*|чепушил[\\p{L}]*|ублюд[\\p{L}]*|мраз[\\p{L}]*|мудак[\\p{L}]*|гнид[\\p{L}]*)")
     private val codeWord = Regex("(?iu)(?:\\bкод\\b|код.{0,24}(?:sms|смс|подтвержден)|(?:sms|смс).{0,24}код|одноразов.{0,15}код|cvc|cvv|пин-код|пароль|данные карты)")
     private val codeRequest = Regex("(?iu)(?:назови|продиктуй|пришли|отправь|сообщи|скажи|введи|подтверди|перешли|передай|дай|скинь).{0,36}(?:код|пароль|пин|cvv|cvc)|(?:код|пароль|пин|cvv|cvc).{0,36}(?:назови|продиктуй|пришли|отправь|сообщи|скажи|введи|передай|дай|скинь)")
     private val safeInstruction = Regex(
@@ -83,10 +89,18 @@ object LocalRisk {
         val safelyWarns = safeInstruction.containsMatchIn(normalized)
         val threatensDoxxing = extortionThreat.containsMatchIn(normalized)
         val hasMoneyMention = moneyMention.containsMatchIn(normalized)
-        val asksForMoney = !safelyWarns && (moneyAction.containsMatchIn(normalized) ||
+        val hasMoneyAmount = moneyAmount.containsMatchIn(normalized)
+        val hasPaymentTarget = hasMoneyAmount || hasMoneyMention || paymentDestination.containsMatchIn(normalized)
+        val asksForMoney = !safelyWarns && ((moneyAction.containsMatchIn(normalized) && hasPaymentTarget) ||
             (moneyAmount.containsMatchIn(normalized) && (asksForHelp.containsMatchIn(normalized) ||
                 (emergencyPretext.containsMatchIn(normalized) && urgency.containsMatchIn(normalized)))) ||
             (threatensDoxxing && hasMoneyMention && paymentDestination.containsMatchIn(normalized)))
+        val threatensPhysicalHarm = physicalThreatCue.containsMatchIn(normalized)
+        val hasUltimatum = coerciveUltimatum.containsMatchIn(normalized) ||
+            (threatensPhysicalHarm && Regex("(?iu)\\b(?:или|либо|иначе|а\\s+то)\\b").containsMatchIn(normalized))
+        val usesHostileLanguage = hostileInsult.containsMatchIn(normalized)
+        val violentMoneyThreat = asksForMoney && hasUltimatum && threatensPhysicalHarm
+        val abusiveMoneyUltimatum = asksForMoney && hasUltimatum && usesHostileLanguage && !violentMoneyThreat
         val isUrgent = urgency.containsMatchIn(normalized)
         val hasEmergency = emergencyPretext.containsMatchIn(normalized)
         val asksForSecret = secrecy.containsMatchIn(normalized)
@@ -103,6 +117,13 @@ object LocalRisk {
         var score = 0
         val factors = mutableListOf<String>()
         if (asksForMoney) { score += 14; factors += "Просьба о деньгах или переводе" }
+        if (violentMoneyThreat) {
+            score += 58
+            factors += "Денежное требование подкреплено угрозой физической расправы"
+        } else if (abusiveMoneyUltimatum) {
+            score += 38
+            factors += "Денежное требование сопровождается оскорбительным ультиматумом"
+        }
         val moneyExtortion = asksForMoney && threatensDoxxing && (hasMoneyMention || moneyAction.containsMatchIn(normalized))
         if (moneyExtortion) {
             score += 42
@@ -136,7 +157,7 @@ object LocalRisk {
         // The synthetic training set is not sufficient to make the model a standalone payment gate.
         // The targeted extortion case is deliberately an advisory for one event. Do not let the
         // classifier turn that same event into a hard hold; independent later signals still count.
-        if (score > 0 && model != null && !moneyExtortion) {
+        if (score > 0 && model != null && !moneyExtortion && !violentMoneyThreat) {
             when {
                 model.label == "dangerous" && model.confidence >= 0.86f -> {
                     score += 8
@@ -153,18 +174,24 @@ object LocalRisk {
             }
         }
         val modelFlagsPayment = asksForMoney && model != null && when (model.label) {
-            // This is only an advisory threshold. The bundled model returns 0.68 for the
-            // screenshot's body-only 200 ₽ text; the intent is to step up, never to block.
+            // This is an advisory threshold only. It can prompt independent verification,
+            // but one message-level prediction never pauses the demo transfer.
             "dangerous" -> model.confidence >= 0.65f
             "suspicious" -> model.confidence >= 0.80f
+            "needs_check" -> model.confidence >= 0.55f && (isUrgent || hasUltimatum || usesHostileLanguage)
             else -> false
         }
         val advisory = when {
+            violentMoneyThreat -> "Требование денег связано с угрозой физической расправы. Демо-перевод приостановлен. Не встречайтесь с отправителем в одиночку; сохраните сообщение и проверьте ситуацию с доверенным человеком. При непосредственной опасности обратись в местную экстренную службу."
+            abusiveMoneyUltimatum -> "Просьба о деньгах сопровождается оскорбительным ультиматумом. Это признак давления, хотя само сообщение не доказывает мошенничество. Не переводите под давлением; проверьте ситуацию по независимому каналу."
             moneyExtortion -> "В сообщении просьба о деньгах связана с угрозой раскрыть личные данные или устроить сватинг. Это похоже на вымогательство. Не переводите под давлением; сохраните сообщение и проверьте ситуацию по независимому каналу."
             modelFlagsPayment -> "Есть просьба перевести деньги, и локальная модель отметила сходство с рискованными сообщениями (уверенность класса ${(model!!.confidence * 100).toInt()}%, это не вероятность мошенничества). Перевод не приостановлен: если просьба неожиданна, подтвердите её звонком по уже известному номеру."
+            asksForMoney && score >= ContextRisk.ADVISORY_THRESHOLD -> "Денежная просьба сопровождается срочностью или другими сигналами давления. Перевод не приостановлен. Если просьба неожиданна, подтвердите её по уже известному каналу."
             else -> null
         }
         val kind = when {
+            violentMoneyThreat -> "violent_money_coercion"
+            abusiveMoneyUltimatum -> "abusive_money_ultimatum"
             moneyExtortion -> "money_extortion"
             score == 0 && asksForMoney -> "ordinary_or_ambiguous_request"
             else -> "incoming_request"
