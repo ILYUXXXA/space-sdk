@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -33,7 +34,6 @@ class MainActivity : Activity() {
     private lateinit var gate: TextView
     private lateinit var transfer: Button
     private lateinit var episodeChain: LinearLayout
-    private lateinit var events: TextView
     private lateinit var sourceState: TextView
     private lateinit var cloudState: TextView
     private lateinit var cloudButton: Button
@@ -71,14 +71,27 @@ class MainActivity : Activity() {
         bankCard.addView(transfer)
         page.addView(bankCard)
 
-        gate = label("", 15, 0xFF14251E.toInt(), 10)
+        gate = label("", 14, 0xFF14251E.toInt(), 10).apply {
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            setLineSpacing(dp(3).toFloat(), 1f)
+        }
         page.addView(card(0xFFFFFFFF.toInt()).apply {
             addView(label("РЕШЕНИЕ ПЕРЕД ПЕРЕВОДОМ", 12, 0xFF16875C.toInt()))
             addView(gate)
         })
 
         page.addView(card(0xFFFFFFFF.toInt()).apply {
-            addView(label("Что связано в эпизоде", 18, 0xFF14251E.toInt()))
+            addView(label("Как читать оценку модели", 18, 0xFF14251E.toInt()))
+            addView(label("ВЫХОД 1 · КЛАСС СООБЩЕНИЯ", 11, 0xFF16875C.toInt(), 10))
+            addView(label("Модель относит текст к одному из четырёх классов: низкорисковый, требующий контекста, подозрительный или опасный шаблон. Это классификация текста, а не вывод о человеке.", 13, 0xFF64736B.toInt(), 3))
+            addView(label("ВЫХОД 2 · ТАКТИКИ", 11, 0xFF16875C.toInt(), 10))
+            addView(label("Отдельно модель ищет приёмы вроде срочности, выдачи себя за службу, фишинговой ссылки, запроса денег или кода, секретности и удалённого доступа. В карточке показываются только заметные модельные сигналы.", 13, 0xFF64736B.toInt(), 3))
+            addView(label("КАК ПРИНИМАЕТСЯ РЕШЕНИЕ", 11, 0xFF16875C.toInt(), 10))
+            addView(label("Решение кнопки строит локальная policy по явным признакам и недавнему контексту. Баллы 0–98 — это шкала сигналов, не процент и не вероятность мошенничества. Модельная уверенность не показывается числом: она не калибрована и не доказывает безопасность.", 13, 0xFF64736B.toInt(), 3))
+        })
+
+        page.addView(card(0xFFFFFFFF.toInt()).apply {
+            addView(label("Связанные события · 30 минут", 18, 0xFF14251E.toInt()))
             metrics = label("", 14, 0xFF64736B.toInt(), 6)
             addView(metrics)
             episodeChain = LinearLayout(this@MainActivity).apply {
@@ -86,12 +99,7 @@ class MainActivity : Activity() {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             }
             addView(episodeChain)
-            addView(label("Связь здесь означает только соседство по времени за 30 минут. Приложение не устанавливает, кто именно отправил сообщение: имя и ник не подтверждают личность.", 12, 0xFF78857E.toInt(), 8))
-        })
-        page.addView(card(0xFFFFFFFF.toInt()).apply {
-            addView(label("События и объяснение", 18, 0xFF14251E.toInt()))
-            events = label("", 14, 0xFF64736B.toInt(), 7)
-            addView(events)
+            addView(label("Стрелка связывает события только по времени; она не доказывает, что сообщения отправил один человек. Имя и ник не подтверждают личность.", 12, 0xFF78857E.toInt(), 8))
         })
 
         val accessCard = card(0xFFFFFFFF.toInt())
@@ -223,31 +231,27 @@ class MainActivity : Activity() {
             serviceConnected -> "● Android listener подключён"
             else -> "◌ Разрешение включено; Android ждёт подключения listener"
         }
-        val modelConfidence = p.getFloat("last_model_confidence", 0f)
-        val modelLabel = p.getString("last_model_label", "unknown") ?: "unknown"
         val recentEvents = RiskHistory.recent(history)
         val signalCount = recentEvents.count { it.score > 0 || it.factors.isNotEmpty() || it.advisory != null }
         val sourceCount = recentEvents.map { it.source }.distinct().size
-        metrics.text = "За 30 минут: ${recentEvents.size} событий · $signalCount с признаками · $sourceCount источников\nПолучено всего: ${p.getInt("received_count", 0)} · проверено локально: ${p.getInt("scanned_count", 0)} · пропущено очередью: ${p.getInt("dropped_count", 0)}\nРиск эпизода: ${risk.score}/98 · последнее: ${p.getString("last_notification_state", "уведомлений пока не было")}${cloudScore?.let { " · мнение облака: $it/100" } ?: ""}"
+        metrics.text = "За окно: ${recentEvents.size} событий · $signalCount с сигналами · $sourceCount источников\nПолучено всего: ${p.getInt("received_count", 0)} · проверено локально: ${p.getInt("scanned_count", 0)} · пропущено очередью: ${p.getInt("dropped_count", 0)}\nПоследнее: ${p.getString("last_notification_state", "уведомлений пока не было")}${cloudScore?.let { " · отдельное мнение облака: $it/100" } ?: ""}"
         renderEpisodeChain(recentEvents)
         transfer.isEnabled = !blocked
-        transfer.text = when { blocked -> "Перевод приостановлен"; risk.advisory != null -> "Проверить перед переводом"; else -> "Перевести" }
-        transfer.setBackgroundColor(when { blocked -> 0xFF78857E.toInt(); risk.advisory != null -> 0xFFB97718.toInt(); else -> 0xFF16875C.toInt() })
+        val needsReview = risk.advisory != null || risk.score >= ContextRisk.ADVISORY_THRESHOLD
+        transfer.text = when { blocked -> "Демо-перевод приостановлен"; needsReview -> "Проверить перед переводом"; else -> "Перевести" }
+        transfer.setBackgroundColor(when { blocked -> 0xFF78857E.toInt(); needsReview -> 0xFFB97718.toInt(); else -> 0xFF16875C.toInt() })
+        val bannerColor = when { blocked -> 0xFFFFECEA.toInt(); needsReview -> 0xFFFFF3D9.toInt(); else -> 0xFFEAF5EF.toInt() }
+        gate.setBackground(GradientDrawable().apply { setColor(bannerColor); cornerRadius = dp(14).toFloat() })
+        gate.setTextColor(when { blocked -> 0xFF9B2F28.toInt(); needsReview -> 0xFF80510B.toInt(); else -> 0xFF205E42.toInt() })
         gate.text = if (blocked) {
-            "⛔ Демо-перевод приостановлен локальной policy (≥${ContextRisk.THRESHOLD}). ${risk.factors.joinToString(" · ").ifBlank { "Совокупность сигналов" }}. Проверьте человека по известному каналу."
+            "⛔ ПАУЗА В ДЕМО\nСводный сигнал: ${risk.score}/98 баллов · порог паузы ${ContextRisk.THRESHOLD}.\nОснования: ${risk.factors.joinToString(" · ").ifBlank { "Совокупность сигналов за 30 минут" }}.\nКнопка демо приостановлена. Баллы не являются вероятностью мошенничества."
         } else if (risk.advisory != null) {
-            "⚠ ПРОВЕРКА РЕКОМЕНДОВАНА. ${risk.advisory}"
+            "⚠ ПРОВЕРЬТЕ ПРОСЬБУ\nСводный сигнал: ${risk.score}/98 баллов.\n${risk.advisory}\nДемо-перевод не заблокирован. Баллы не являются вероятностью мошенничества."
+        } else if (risk.score >= ContextRisk.ADVISORY_THRESHOLD) {
+            "⚠ ПРОВЕРКА РЕКОМЕНДОВАНА\nСводный сигнал: ${risk.score}/98 баллов · от ${ContextRisk.ADVISORY_THRESHOLD} рекомендуется проверка.\nОснования: ${risk.factors.joinToString(" · ").ifBlank { "несколько сигналов в одном временном окне" }}.\nПодтвердите просьбу по известному каналу. Демо-перевод доступен; баллы не являются вероятностью мошенничества."
         } else {
-            "✓ Кнопка доступна: локальный риск ниже ${ContextRisk.THRESHOLD}. Это не доказательство безопасности — проверьте получателя отдельно."
+            "✓ СИГНАЛ НИЖЕ ПОРОГА ПРОВЕРКИ\nСводный сигнал: ${risk.score}/98 баллов · проверка рекомендуется от ${ContextRisk.ADVISORY_THRESHOLD}.\nКнопка демо доступна. Это не подтверждение безопасности и не проверка личности получателя."
         }
-        val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
-        events.text = if (history.isEmpty()) "Пока нет событий. Разреши Android-доступ к уведомлениям или запусти синтетический демо-кейс." else
-            RiskHistory.recent(history).takeLast(7).asReversed().joinToString("\n\n") { event ->
-                val confidence = if (event.modelConfidence > 0f) " · класс модели ${labelRu(event.modelLabel)}, уверенность ${(event.modelConfidence * 100).toInt()}% (не вероятность мошенничества)" else ""
-                val tacticLine = event.modelTactics.keys.take(3).takeIf { it.isNotEmpty() }
-                    ?.joinToString(", ")?.let { "\nТактики модели: $it" }.orEmpty()
-                "${formatter.format(Date(event.at))} · ${event.source} · риск ${event.score}/98$confidence\n${event.factors.joinToString(" · ").ifBlank { "Сильных признаков правилами не найдено" }}$tacticLine"
-            }.ifBlank { "Активных событий за 30 минут нет." }
         val usageEnabled = UsageSignals.hasAccess(this)
         sourceState.text = "Модель: ${if (OnDeviceModel.status().startsWith("Локальная модель недоступна")) OnDeviceModel.status() else "RuBERT-tiny2 fine-tuned · ONNX INT8 · на устройстве"}\nUsageStats: ${if (usageEnabled) "opt-in включён; короткий запрос выполняется только при нажатии перевода" else "выключен; сам не запрашивается"}\nПроверочный звонок: только открывает системный набор; не устанавливает личность и не влияет на риск."
         val used = CloudReview.attempts(this)
@@ -260,26 +264,35 @@ class MainActivity : Activity() {
         episodeChain.removeAllViews()
         val shown = recent.takeLast(5)
         if (shown.isEmpty()) {
-            episodeChain.addView(label("Пока нет сигналов. После уведомления здесь появится источник, найденные признаки и объяснение решения.", 13, 0xFF64736B.toInt(), 8))
+            episodeChain.addView(label("Пока нет событий. Разреши Android-доступ к уведомлениям или запусти синтетический демо-кейс.", 13, 0xFF64736B.toInt(), 8))
             return
         }
         val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
-        shown.forEachIndexed { index, event ->
-            if (index > 0) episodeChain.addView(label("↓  следующий сигнал в том же 30-минутном окне", 11, 0xFF78857E.toInt(), 4))
+        shown.asReversed().forEachIndexed { index, event ->
+            if (index > 0) episodeChain.addView(label("↓  ещё одно событие в том же 30-минутном окне", 11, 0xFF78857E.toInt(), 4))
+            val eventNeedsReview = event.advisory != null || event.score >= ContextRisk.ADVISORY_THRESHOLD
+            val eventStrongSignal = event.score >= ContextRisk.THRESHOLD
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(12), dp(10), dp(12), dp(10))
-                setBackgroundColor(if (event.advisory != null) 0xFFFFF5E4.toInt() else 0xFFF3F6F4.toInt())
+                background = GradientDrawable().apply {
+                    setColor(if (eventStrongSignal) 0xFFFFECEA.toInt() else if (eventNeedsReview) 0xFFFFF5E4.toInt() else 0xFFF3F6F4.toInt())
+                    cornerRadius = dp(12).toFloat()
+                }
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) }
             }
             row.addView(label("${formatter.format(Date(event.at))}  ·  ${event.source}", 14, 0xFF14251E.toInt()))
-            row.addView(label("Проверено на устройстве · риск события ${event.score}/98", 12, 0xFF64736B.toInt(), 3))
-            val findings = event.factors.joinToString(" · ").ifBlank { "Явных признаков локальными правилами не найдено" }
-            row.addView(label(findings, 13, 0xFF14251E.toInt(), 5))
+            row.addView(label(eventStatus(event.score, event.advisory != null), 12, if (eventStrongSignal) 0xFFAA352B.toInt() else if (eventNeedsReview) 0xFF8A570F.toInt() else 0xFF287A56.toInt(), 5))
+            row.addView(label("СИГНАЛЫ ЛОКАЛЬНЫХ ПРАВИЛ · ${event.score}/98 баллов", 10, 0xFF64736B.toInt(), 8))
+            row.addView(label(event.factors.joinToString("\n• ").let { if (it.isBlank()) "• Явных признаков правилами не найдено" else "• $it" }, 13, 0xFF14251E.toInt(), 3))
             if (event.modelConfidence > 0f) {
-                row.addView(label("Класс модели: ${labelRu(event.modelLabel)} · уверенность ${(event.modelConfidence * 100).toInt()}% (не вероятность мошенничества)", 12, 0xFF64736B.toInt(), 5))
+                row.addView(label("ВЫХОД МОДЕЛИ 1 · КЛАСС ТЕКСТА", 10, 0xFF64736B.toInt(), 9))
+                row.addView(label(labelRu(event.modelLabel), 14, 0xFF14251E.toInt(), 2))
+                row.addView(label("Это класс сообщения, а не заключение о мошеннике. Даже низкорисковый класс не гарантирует безопасность; итоговый статус учитывает отдельные правила и контекст эпизода.", 12, 0xFF64736B.toInt(), 3))
+                row.addView(label("ВЫХОД МОДЕЛИ 2 · ТАКТИКИ", 10, 0xFF64736B.toInt(), 9))
+                row.addView(label(renderTactics(event.modelTactics), 12, 0xFF14251E.toInt(), 2))
             }
-            if (event.advisory != null) row.addView(label("Рекомендация: ${event.advisory}", 13, 0xFF8A570F.toInt(), 5))
+            if (event.advisory != null) row.addView(label("РЕКОМЕНДАЦИЯ\n${event.advisory}", 13, 0xFF8A570F.toInt(), 8))
             episodeChain.addView(row)
         }
     }
@@ -321,7 +334,7 @@ class MainActivity : Activity() {
                 refresh()
                 AlertDialog.Builder(this)
                     .setTitle(title)
-                    .setMessage("Локальная policy: ${signal.score}/98 · класс модели: ${labelRu(signal.modelLabel)} · уверенность ${if (signal.modelConfidence > 0) "${(signal.modelConfidence * 100).toInt()}%" else "недоступна"} (не вероятность мошенничества)\n\n${signal.factors.joinToString("\n").ifBlank { "Опасные локальные признаки не обнаружены." }}${signal.advisory?.let { "\n\nРекомендация: $it" } ?: ""}\n\nТекст кейса не сохранён.")
+                    .setMessage("РЕШЕНИЕ POLICY\n${eventStatus(signal.score, signal.advisory != null)} · ${signal.score}/98 баллов\n\nВЫХОД 1 · КЛАСС ТЕКСТА\n${labelRu(signal.modelLabel)}\nЭто категория текста, не вероятность мошенничества и не подтверждение личности.\n\nВЫХОД 2 · ТАКТИКИ\n${renderTactics(signal.modelTactics)}\n\nПРИЗНАКИ ЛОКАЛЬНЫХ ПРАВИЛ\n${signal.factors.joinToString("\n• ").let { if (it.isBlank()) "• Явных признаков правилами не найдено" else "• $it" }}${signal.advisory?.let { "\n\nРЕКОМЕНДАЦИЯ\n$it" } ?: ""}\n\nТекст кейса не сохранён.")
                     .setPositiveButton("Понятно", null).show()
             }
         }
@@ -344,11 +357,12 @@ class MainActivity : Activity() {
         refresh()
         if (risk.blocked) {
             AlertDialog.Builder(this).setTitle("Демо-перевод приостановлен")
-                .setMessage("Перед нажатием появился дополнительный контекст. ${risk.factors.joinToString(" · ")}\n\nЭто только демо. Проверьте получателя через известный канал.")
+                .setMessage("Сводный сигнал: ${risk.score}/98 баллов. ${risk.factors.joinToString(" · ")}\n\nБаллы не являются вероятностью мошенничества. Это только демо. Проверьте получателя через известный канал.")
                 .setPositiveButton("Понятно", null).show()
-        } else if (risk.advisory != null) {
+        } else if (risk.advisory != null || risk.score >= ContextRisk.ADVISORY_THRESHOLD) {
+            val recommendation = risk.advisory ?: "Сводный сигнал ${risk.score}/98 достиг порога проверки ${ContextRisk.ADVISORY_THRESHOLD}. Подтвердите просьбу по уже известному каналу."
             AlertDialog.Builder(this).setTitle("Перед переводом проверьте просьбу")
-                .setMessage("${risk.advisory}\n\nДемо-перевод не заблокирован. Продолжайте только если вы проверили просьбу независимо от этого чата.")
+                .setMessage("$recommendation\n\nБаллы не являются вероятностью мошенничества. Демо-перевод не заблокирован. Продолжайте только если вы проверили просьбу независимо от этого чата.")
                 .setNegativeButton("Отмена", null)
                 .setPositiveButton("Я проверил — продолжить демо") { _, _ ->
                     AlertDialog.Builder(this).setTitle("Демо-перевод доступен")
@@ -400,17 +414,48 @@ class MainActivity : Activity() {
     }
 
     private fun labelRu(label: String): String = when (label) {
-        "safe" -> "низкий"
-        "needs_check" -> "нужна проверка"
-        "suspicious" -> "подозрительно"
-        "dangerous" -> "опасно"
-        else -> "не оценено"
+        "safe" -> "Низкорисковый текст"
+        "needs_check" -> "Требуется контекст"
+        "suspicious" -> "Подозрительный шаблон"
+        "dangerous" -> "Опасный шаблон"
+        else -> "Модель не оценила текст"
     }
+
+    private fun eventStatus(score: Int, hasAdvisory: Boolean): String = when {
+        score >= ContextRisk.THRESHOLD -> "СИЛЬНЫЙ СИГНАЛ · ПРОВЕРЬТЕ ПЕРЕД ПЕРЕВОДОМ"
+        hasAdvisory || score >= ContextRisk.ADVISORY_THRESHOLD -> "РЕКОМЕНДОВАНА ПРОВЕРКА"
+        else -> "ПАУЗЫ НЕТ · ЭТО НЕ ЗНАЧИТ, ЧТО СООБЩЕНИЕ БЕЗОПАСНО"
+    }
+
+    private fun renderTactics(tactics: Map<String, Float>): String {
+        val names = tactics.keys.take(5).mapNotNull { tacticNames[it] }
+        return if (names.isEmpty()) {
+            "Сильных сигналов из списка тактик не отмечено. Это не подтверждает безопасность сообщения."
+        } else {
+            names.joinToString("\n• ", prefix = "• ") + "\nМодельные сигналы требуют проверки и сами по себе не доказывают мошенничество."
+        }
+    }
+
+    private val tacticNames = mapOf(
+        "urgency" to "Давление срочностью",
+        "impersonation" to "Возможная имитация организации или человека",
+        "phishing_link" to "Фишинговая ссылка",
+        "payment_request" to "Просьба о платеже",
+        "credential_theft" to "Запрос кода или учётных данных",
+        "verification_needed" to "Подталкивание к проверке/подтверждению",
+        "investment_or_prize" to "Инвестиционная или призовая приманка",
+        "remote_access" to "Просьба о дистанционном доступе",
+        "secrecy" to "Просьба сохранить разговор в тайне",
+        "job_scam" to "Признаки сомнительного предложения работы",
+        "marketplace_scam" to "Признаки риска сделки на площадке",
+        "third_party" to "Участие третьего лица",
+        "too_good_to_be_true" to "Слишком выгодное предложение"
+    )
 
     private fun card(color: Int) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(16), dp(16), dp(16), dp(16))
-        setBackgroundColor(color)
+        background = GradientDrawable().apply { setColor(color); cornerRadius = dp(16).toFloat() }
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
     }
 
@@ -418,6 +463,7 @@ class MainActivity : Activity() {
         text = textValue
         textSize = size.toFloat()
         setTextColor(color)
+        setLineSpacing(dp(2).toFloat(), 1f)
         if (top > 0) setPadding(0, dp(top), 0, 0)
     }
 

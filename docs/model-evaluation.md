@@ -36,7 +36,9 @@ The external boundary-set accuracy rose from 0.873 to 0.880 and macro-F1 from 0.
 
 ## Product decision rules
 
-- Model confidence is not a probability that a person is a fraudster.
+- Model softmax confidence is not calibrated and is not a probability that a message is fraudulent or a person is a fraudster. The app therefore presents the selected text class and tactic signals without a numeric confidence percentage.
+- The two model outputs are explained separately in the app: a four-class message head and a multi-label tactics head. Neither identifies the sender; the policy decision uses local rules and the recent episode score.
+- A combined episode score of 30 or more recommends an independent check and leaves the demo transfer available. A score of 60 or more pauses only the demo transfer.
 - A model class prediction alone never pauses the demo transfer. The local rule/context policy requires explicit signals for a pause.
 - Strong financial pressure can trigger a non-blocking recommendation to verify the request independently.
 - Explicit money demand plus an ultimatum and a physical-threat cue can pause the **demo** transfer. This is a safety rule for a direct threat, not a model claim.
